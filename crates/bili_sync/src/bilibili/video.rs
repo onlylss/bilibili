@@ -306,7 +306,7 @@ impl<'a> Video<'a> {
         Ok(serde_json::from_value(res["data"].take())?)
     }
 
-    pub async fn get_danmaku_writer(&self, page: &'a PageInfo, token: CancellationToken) -> Result<DanmakuWriter> {
+    pub async fn get_danmaku_writer(&self, page: &'a PageInfo, token: CancellationToken) -> Result<DanmakuWriter<'_>> {
         let segment_count = page.duration.div_ceil(360);
         debug!("开始获取弹幕，共{}个分段", segment_count);
 

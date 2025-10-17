@@ -7,6 +7,7 @@ use crate::utils::filenamify::filenamify;
 
 /// 稍后再看的配置
 #[derive(Serialize, Deserialize, Default)]
+#[allow(dead_code)]
 pub struct WatchLaterConfig {
     pub enabled: bool,
     pub path: PathBuf,
