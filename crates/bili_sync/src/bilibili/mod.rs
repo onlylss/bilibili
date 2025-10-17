@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-pub use analyzer::{AudioQuality, BestStream, Stream, VideoCodecs, VideoQuality};
+pub use analyzer::{AudioQuality, BestStream, FilterOption, Stream, VideoCodecs, VideoQuality};
 use anyhow::{bail, ensure, Result};
 use arc_swap::ArcSwapOption;
 pub use captcha_server::{get_captcha_info, serve_captcha_page, submit_captcha_result};
@@ -10,7 +10,7 @@ use chrono::{DateTime, Utc};
 pub use client::{BiliClient, Client, SearchResult};
 pub use collection::{Collection, CollectionItem, CollectionType};
 pub use credential::Credential;
-// pub use danmaku::DanmakuOption;
+pub use danmaku::DanmakuOption;
 pub use error::BiliError;
 pub use favorite_list::FavoriteList;
 use favorite_list::Upper;
