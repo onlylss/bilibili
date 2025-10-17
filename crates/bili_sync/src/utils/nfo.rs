@@ -535,7 +535,7 @@ impl NFO<'_> {
                     let sort_title_to_write = if cfg.bangumi_use_season_structure && Self::is_bangumi_video(tvshow.category) {
                         crate::utils::bangumi_name_extractor::BangumiNameExtractor::normalize_series_name(&display_title)
                     } else {
-                        display_title.clone()
+                        display_title.to_string()
                     };
                     writer
                         .create_element("sorttitle")

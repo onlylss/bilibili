@@ -1702,7 +1702,7 @@ pub async fn download_video_pages(
     };
 
     // 为番剧生成番剧文件夹级别的文件名前缀
-    let bangumi_base_name = if is_bangumi {
+    let bangumi_base_name: String = if is_bangumi {
         if let Some(ref bangumi_folder_path) = bangumi_folder_path {
             // 使用番剧文件夹名称作为前缀
             bangumi_folder_path

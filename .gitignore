@@ -59,7 +59,7 @@ bili-sync-main
 *.7z
 bili-sync-01-2.6.2
 Downloads
-config
+/config
 问题
 /make1.bat
 

@@ -247,7 +247,7 @@ impl QRLoginService {
                             tracing::debug!("使用现有配置中的 buvid3");
                         }
                         if buvid4.is_none() {
-                            if let Some(ref existing_buvid4) = current_cred.buvid4 {
+                            if let Some(existing_buvid4) = &current_cred.buvid4 {
                                 if !existing_buvid4.is_empty() {
                                     buvid4 = Some(existing_buvid4.clone());
                                     tracing::debug!("使用现有配置中的 buvid4");

@@ -121,7 +121,7 @@ impl NotificationClient {
             return Ok(());
         }
 
-        let Some(ref key) = self.config.serverchan_key else {
+        let Some(key) = &self.config.serverchan_key else {
             warn!("未配置Server酱密钥，无法发送推送");
             return Ok(());
         };
@@ -314,7 +314,7 @@ impl NotificationClient {
     }
 
     pub async fn test_notification(&self) -> Result<()> {
-        let Some(ref key) = self.config.serverchan_key else {
+        let Some(key) = &self.config.serverchan_key else {
             return Err(anyhow!("未配置Server酱密钥"));
         };
 
@@ -325,7 +325,7 @@ impl NotificationClient {
     }
 
     pub async fn send_custom_test(&self, message: &str) -> Result<()> {
-        let Some(ref key) = self.config.serverchan_key else {
+        let Some(key) = &self.config.serverchan_key else {
             return Err(anyhow!("未配置Server酱密钥"));
         };
 
