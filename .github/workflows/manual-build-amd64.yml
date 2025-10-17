@@ -1,0 +1,42 @@
+name: 手动构建 AMD64
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: 构建 Linux x86_64 版本
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Rust 工具链
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          target: x86_64-unknown-linux-musl
+
+      - name: 安装构建依赖
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools
+
+      - name: 构建项目
+        run: |
+          cargo build --release --target x86_64-unknown-linux-musl
+
+      - name: 准备发布文件
+        run: |
+          cd target/x86_64-unknown-linux-musl/release
+          tar czf bili-sync-rs-Linux-x86_64-musl.tar.gz bili-sync-rs
+          mv bili-sync-rs-Linux-x86_64-musl.tar.gz ../../../
+
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: bili-sync-rs-Linux-x86_64-musl
+          path: bili-sync-rs-Linux-x86_64-musl.tar.gz
+          retention-days: 3
+          compression-level: 0
