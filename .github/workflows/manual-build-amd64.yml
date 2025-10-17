@@ -40,29 +40,43 @@ jobs:
         run: |
           cargo build --release --target x86_64-unknown-linux-musl
 
-      - name: 准备发布文件
+      - name: 打包二进制文件供 Docker 使用
         run: |
           cd target/x86_64-unknown-linux-musl/release
           tar czf bili-sync-rs-Linux-x86_64-musl.tar.gz bili-sync-rs
           mv bili-sync-rs-Linux-x86_64-musl.tar.gz ../../../
 
+      - name: 生成时间戳
+        id: timestamp
+        run: echo "timestamp=$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_OUTPUT
+
       - name: 构建 Docker 镜像
         run: |
-          docker build --platform linux/amd64 -t bili-sync:latest .
-          docker save bili-sync:latest | gzip > bili-sync-docker-amd64.tar.gz
-
-      - name: 上传二进制文件
-        uses: actions/upload-artifact@v4
-        with:
-          name: bili-sync-binary-amd64
-          path: bili-sync-rs-Linux-x86_64-musl.tar.gz
-          retention-days: 3
-          compression-level: 0
+          IMAGE_NAME="bilibili-ly-${{ steps.timestamp.outputs.timestamp }}"
+          docker build --platform linux/amd64 -t ${IMAGE_NAME} .
+          docker save ${IMAGE_NAME} | gzip > bilibili-ly-docker-amd64.tar.gz
+          echo "## 构建完成 ✅" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**镜像名称**: \`${IMAGE_NAME}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**使用方法**:" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "# 1. 下载并导入镜像" >> $GITHUB_STEP_SUMMARY
+          echo "gunzip -c bilibili-ly-docker-amd64.tar.gz | docker load" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "# 2. 运行容器" >> $GITHUB_STEP_SUMMARY
+          echo "docker run -d --name bili-sync --restart unless-stopped \\" >> $GITHUB_STEP_SUMMARY
+          echo "  -p 12345:12345 \\" >> $GITHUB_STEP_SUMMARY
+          echo "  -v ./config:/app/.config/bili-sync \\" >> $GITHUB_STEP_SUMMARY
+          echo "  -v ./Downloads:/Downloads \\" >> $GITHUB_STEP_SUMMARY
+          echo "  -e TZ=Asia/Shanghai \\" >> $GITHUB_STEP_SUMMARY
+          echo "  ${IMAGE_NAME}" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
 
       - name: 上传 Docker 镜像
         uses: actions/upload-artifact@v4
         with:
-          name: bili-sync-docker-amd64
-          path: bili-sync-docker-amd64.tar.gz
+          name: bilibili-ly-docker-amd64
+          path: bilibili-ly-docker-amd64.tar.gz
           retention-days: 3
           compression-level: 0
