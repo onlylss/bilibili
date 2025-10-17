@@ -39,4 +39,4 @@ COPY --from=base / /
 
 ENTRYPOINT [ "/app/bili-sync-rs" ]
 
-VOLUME [ "/app/.config/bili-sync" ]
+VOLUME [ "/app/.config/bili-sync", "/bl" ]
