@@ -19,8 +19,8 @@ services:
     ports:
       - 12345:12345
     volumes:
-      - ./config:/app/.config/bili-sync
-      - ./Downloads:/Downloads
+      - /临时存储/docker/bilibili:/app/.config/bili-sync
+      - /我的文件/LY/资源采集/哔哩哔哩:/bl
     logging:
       driver: "local"
     environment:

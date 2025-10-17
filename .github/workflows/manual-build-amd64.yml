@@ -67,8 +67,8 @@ jobs:
           echo "# 2. 运行容器" >> $GITHUB_STEP_SUMMARY
           echo "docker run -d --name bili-sync --restart unless-stopped \\" >> $GITHUB_STEP_SUMMARY
           echo "  -p 12345:12345 \\" >> $GITHUB_STEP_SUMMARY
-          echo "  -v ./config:/app/.config/bili-sync \\" >> $GITHUB_STEP_SUMMARY
-          echo "  -v ./Downloads:/Downloads \\" >> $GITHUB_STEP_SUMMARY
+          echo "  -v /临时存储/docker/bilibili:/app/.config/bili-sync \\" >> $GITHUB_STEP_SUMMARY
+          echo "  -v /我的文件/LY/资源采集/哔哩哔哩:/bl \\" >> $GITHUB_STEP_SUMMARY
           echo "  -e TZ=Asia/Shanghai \\" >> $GITHUB_STEP_SUMMARY
           echo "  ${IMAGE_NAME}" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
