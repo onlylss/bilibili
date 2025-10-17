@@ -46,10 +46,23 @@ jobs:
           tar czf bili-sync-rs-Linux-x86_64-musl.tar.gz bili-sync-rs
           mv bili-sync-rs-Linux-x86_64-musl.tar.gz ../../../
 
-      - name: 上传构建产物
+      - name: 构建 Docker 镜像
+        run: |
+          docker build --platform linux/amd64 -t bili-sync:latest .
+          docker save bili-sync:latest | gzip > bili-sync-docker-amd64.tar.gz
+
+      - name: 上传二进制文件
         uses: actions/upload-artifact@v4
         with:
-          name: bili-sync-rs-Linux-x86_64-musl
+          name: bili-sync-binary-amd64
           path: bili-sync-rs-Linux-x86_64-musl.tar.gz
+          retention-days: 3
+          compression-level: 0
+
+      - name: 上传 Docker 镜像
+        uses: actions/upload-artifact@v4
+        with:
+          name: bili-sync-docker-amd64
+          path: bili-sync-docker-amd64.tar.gz
           retention-days: 3
           compression-level: 0
