@@ -957,25 +957,56 @@
 		}
 	}
 
-	// 过滤后的收藏夹列表（不完全过滤，而是标记已存在状态）
-	$: filteredUserFavorites = userFavorites;
+	// 过滤后的收藏夹列表（未添加的排在前面，已添加的排在后面）
+	$: filteredUserFavorites = (() => {
+		const notAdded = userFavorites.filter((fav) => !existingFavoriteIds.has(Number(fav.id)));
+		const added = userFavorites.filter((fav) => existingFavoriteIds.has(Number(fav.id)));
+		return [...notAdded, ...added];
+	})();
 
-	$: filteredSearchedUserFavorites = searchedUserFavorites;
+	$: filteredSearchedUserFavorites = (() => {
+		const notAdded = searchedUserFavorites.filter((fav) => !existingFavoriteIds.has(Number(fav.id)));
+		const added = searchedUserFavorites.filter((fav) => existingFavoriteIds.has(Number(fav.id)));
+		return [...notAdded, ...added];
+	})();
 
-	// 过滤后的合集列表（不完全过滤，而是标记已存在状态）
-	$: filteredUserCollections = userCollections;
+	// 过滤后的合集列表（未添加的排在前面，已添加的排在后面）
+	$: filteredUserCollections = (() => {
+		const notAdded = userCollections.filter((col) =>
+			!isCollectionExists(col.sid, col.mid.toString())
+		);
+		const added = userCollections.filter((col) =>
+			isCollectionExists(col.sid, col.mid.toString())
+		);
+		return [...notAdded, ...added];
+	})();
 
-	// 过滤后的关注UP主列表（不完全过滤，而是标记已存在状态）
-	$: filteredUserFollowings = userFollowings;
+	// 过滤后的关注UP主列表（未添加的排在前面，已添加的排在后面）
+	$: filteredUserFollowings = (() => {
+		const notAdded = userFollowings.filter((user) =>
+			user.mid && !existingSubmissionIds.has(Number(user.mid))
+		);
+		const added = userFollowings.filter((user) =>
+			user.mid && existingSubmissionIds.has(Number(user.mid))
+		);
+		return [...notAdded, ...added];
+	})();
 
 	// 过滤后的搜索结果（根据类型过滤已存在的源）
-	$: filteredSearchResults = searchResults.filter((result) => {
-		if (sourceType === 'submission' && result.mid) {
-			return !existingSubmissionIds.has(Number(result.mid));
+	$: filteredSearchResults = (() => {
+		// 对于UP主投稿类型，将未添加的UP主排在前面，已添加的排在后面
+		if (sourceType === 'submission') {
+			const notAdded = searchResults.filter((result) =>
+				result.mid && !existingSubmissionIds.has(Number(result.mid))
+			);
+			const added = searchResults.filter((result) =>
+				result.mid && existingSubmissionIds.has(Number(result.mid))
+			);
+			return [...notAdded, ...added];
 		}
 		// 对于番剧和合集搜索，不完全过滤，显示所有结果但标记已存在状态
-		return true;
-	});
+		return searchResults;
+	})();
 
 	// 过滤后的番剧季度列表（标记已存在的季度）
 	$: filteredBangumiSeasons = bangumiSeasons.map((season) => ({
