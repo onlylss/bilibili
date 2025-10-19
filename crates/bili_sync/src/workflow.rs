@@ -2987,14 +2987,12 @@ pub async fn generate_page_nfo(
     if !should_run {
         return Ok(ExecutionStatus::Skipped);
     }
-    // 检查是否为番剧
-    let is_bangumi = video_model.category == 1;
 
     let nfo = match video_model.single_page {
         Some(single_page) => {
             if single_page {
-                if is_bangumi || video_model.collection_id.is_some() {
-                    // 番剧单页或合集视频应使用Episode格式，符合Emby标准
+                if video_model.collection_id.is_some() {
+                    // 合集视频应使用Episode格式，符合Emby标准
                     use crate::utils::nfo::Episode;
                     let mut episode = Episode::from_video_and_page(video_model, page_model);
                     // 对于合集视频，如果数据库中尚未带有 episode_number，按合集顺序编号
@@ -3004,225 +3002,38 @@ pub async fn generate_page_nfo(
                                 episode.episode_number = ep_no;
                             }
                         }
-            }
-        }
-
-        // 从目标season的所有条目中选择第一个有有效横版封面的
-        let found_season_covers = if !target_season_covers.is_empty() {
-            debug!(
-                "共找到 {} 个 season_id {} 的条目",
-                target_season_covers.len(),
-                season_id
-            );
-
-            // 先寻找有有效横版封面的条目
-            let valid_cover = target_season_covers.iter().find(|(new_ep, h1610, h169, bkg)| {
-                new_ep.as_ref().map(|s| !s.is_empty()).unwrap_or(false)
-                    || h1610.as_ref().map(|s| !s.is_empty()).unwrap_or(false)
-                    || h169.as_ref().map(|s| !s.is_empty()).unwrap_or(false)
-                    || bkg.as_ref().map(|s| !s.is_empty()).unwrap_or(false)
-            });
-
-            if let Some(covers) = valid_cover {
-                debug!("✓ 找到有有效横版封面的season_id {} 条目", season_id);
-                Some(covers.clone())
+                    }
+                    NFO::Episode(episode)
+                } else {
+                    // 普通单页视频生成Movie
+                    use crate::utils::nfo::Movie;
+                    NFO::Movie(Movie::from_video_with_pages(video_model, &[page_model.clone()]))
+                }
             } else {
-                warn!("⚠️ 目标season {} 的所有条目都没有有效的横版封面", season_id);
-                target_season_covers.first().cloned()
+                use crate::utils::nfo::Episode;
+                let episode = Episode::from_video_and_page(video_model, page_model);
+                NFO::Episode(episode)
             }
-        } else {
-            None
-        };
-
-        // 智能fallback逻辑
-        match found_season_covers {
-            Some((new_ep, h1610, h169, bkg)) => {
-                // 检查找到的season是否有有效的横版封面
-                let has_valid_covers = new_ep.as_ref().map(|s| !s.is_empty()).unwrap_or(false)
-                    || h1610.as_ref().map(|s| !s.is_empty()).unwrap_or(false)
-                    || h169.as_ref().map(|s| !s.is_empty()).unwrap_or(false)
-                    || bkg.as_ref().map(|s| !s.is_empty()).unwrap_or(false);
-
-                if has_valid_covers {
-                    debug!("✓ 目标season {} 有有效的横版封面，直接使用", season_id);
-                    (new_ep, h1610, h169, bkg)
-                } else if let Some((fallback_new_ep, fallback_h1610, fallback_h169, fallback_bkg)) =
-                    first_available_covers
-                {
-                    warn!("⚠️ 目标season {} 没有有效的横版封面，使用第一个可用的备选", season_id);
-                    debug!(
-                        "  备选横版封面: new_ep={:?}, h1610={:?}, h169={:?}, bkg={:?}",
-                        fallback_new_ep, fallback_h1610, fallback_h169, fallback_bkg
-                    );
-                    (fallback_new_ep, fallback_h1610, fallback_h169, fallback_bkg)
-                } else {
-                    warn!(
-                        "⚠️ 目标season {} 和所有备选都没有有效的横版封面，使用顶层字段",
-                        season_id
-                    );
-                    (
-                        None, // 顶层没有new_ep字段
-                        result["horizontal_cover_1610"].as_str().map(|s| s.to_string()),
-                        result["horizontal_cover_169"].as_str().map(|s| s.to_string()),
-                        result["bkg_cover"].as_str().map(|s| s.to_string()),
-                    )
+        }
+        None => {
+            use crate::utils::nfo::Episode;
+            let mut episode = Episode::from_video_and_page(video_model, page_model);
+            // 非番剧但属于合集的视频：按合集顺序编号，避免固定为1
+            if let Some(col_id) = video_model.collection_id {
+                if video_model.episode_number.is_none() {
+                    if let Ok(ep_no) = get_collection_video_episode_number(_connection, col_id, &video_model.bvid).await {
+                        episode.episode_number = ep_no;
+                    }
                 }
             }
-            None => {
-                // 完全没找到目标season，使用备选或顶层
-                if let Some((fallback_new_ep, fallback_h1610, fallback_h169, fallback_bkg)) = first_available_covers {
-                    warn!("⚠️ 未找到目标season {}，使用第一个可用的备选", season_id);
-                    info!(
-                        "  备选横版封面: new_ep={:?}, h1610={:?}, h169={:?}, bkg={:?}",
-                        fallback_new_ep, fallback_h1610, fallback_h169, fallback_bkg
-                    );
-                    (fallback_new_ep, fallback_h1610, fallback_h169, fallback_bkg)
-                } else {
-                    warn!("⚠️ 未找到目标season {} 且无备选，使用顶层字段", season_id);
-                    (
-                        None, // 顶层没有new_ep字段
-                        result["horizontal_cover_1610"].as_str().map(|s| s.to_string()),
-                        result["horizontal_cover_169"].as_str().map(|s| s.to_string()),
-                        result["bkg_cover"].as_str().map(|s| s.to_string()),
-                    )
-                }
-            }
+            NFO::Episode(episode)
         }
-    } else {
-        // 没有seasons数组，使用顶层字段
-        warn!("API响应中没有seasons数组，使用顶层字段");
-        (
-            None, // 顶层没有new_ep字段
-            result["horizontal_cover_1610"].as_str().map(|s| s.to_string()),
-            result["horizontal_cover_169"].as_str().map(|s| s.to_string()),
-            result["bkg_cover"].as_str().map(|s| s.to_string()),
-        )
-    };
-    let media_id = result["media_id"].as_i64();
-    let publish_time = result["publish"]["pub_time_show"].as_str().map(|s| s.to_string());
-    let total_views = result["stat"]["views"].as_i64();
-    let total_favorites = result["stat"]["favorites"].as_i64();
-
-    let episodes: Vec<EpisodeInfo> = result["episodes"]
-        .as_array()
-        .context("找不到分集列表")?
-        .iter()
-        .filter_map(|ep| {
-            let ep_id = ep["id"].as_i64()?.to_string();
-            let cid = ep["cid"].as_i64()?;
-            let duration_ms = ep["duration"].as_i64()?;
-            let duration = (duration_ms / 1000) as u32;
-
-            Some(EpisodeInfo { ep_id, cid, duration })
-        })
-        .collect();
-
-    info!(
-        "成功获取番剧季 {} 「{}」完整信息：{} 集，评分 {:?}，制作地区 {:?}，类型 {:?}",
-        season_id,
-        title,
-        episodes.len(),
-        rating,
-        areas,
-        styles
-    );
-
-    // 从API的seasons数组计算总季数
-    let total_seasons = if let Some(seasons_array) = result["seasons"].as_array() {
-        if seasons_array.is_empty() {
-            // 单季度番剧：seasons数组为空，默认为1季
-            Some(1)
-        } else {
-            // 多季度番剧：seasons数组长度就是总季数
-            Some(seasons_array.len() as i32)
-        }
-    } else {
-        // 没有seasons字段，假设为单季
-        Some(1)
     };
 
-    debug!("番剧 {} 总季数计算完成: {} 季", title, total_seasons.unwrap_or(1));
-
-    // 获取show_season_type
-    let show_season_type = result["type"].as_i64().map(|v| v as i32);
-
-    Ok(SeasonInfo {
-        title,
-        episodes,
-        alias,
-        evaluate,
-        rating,
-        rating_count,
-        areas,
-        actors,
-        styles,
-        total_episodes,
-        status,
-        cover,
-        new_ep_cover,
-        horizontal_cover_1610,
-        horizontal_cover_169,
-        bkg_cover,
-        media_id,
-        season_id: season_id.to_string(),
-        publish_time,
-        total_views,
-        total_favorites,
-        total_seasons,
-        show_season_type,
-    })
+    generate_nfo(nfo, nfo_path).await?;
+    Ok(ExecutionStatus::Succeeded)
 }
 
-/// 处理单个番剧视频
-async fn process_bangumi_video(
-    video_model: video::Model,
-    episodes_map: &HashMap<String, (i64, u32)>,
-    connection: &DatabaseConnection,
-    video_source: &VideoSourceEnum,
-) -> Result<()> {
-    let txn = connection.begin().await?;
-
-    let (actual_cid, duration) = if let Some(ep_id) = &video_model.ep_id {
-        match episodes_map.get(ep_id) {
-            Some(&info) => {
-                debug!("使用缓存信息: EP{} -> CID={}, Duration={}s", ep_id, info.0, info.1);
-                info
-            }
-            None => {
-                warn!("找不到分集 {} 的信息，使用默认值", ep_id);
-                (-1, 1440) // 默认值
-            }
-        }
-    } else {
-        error!("番剧 {} 缺少EP ID", video_model.name);
-        (-1, 1440)
-    };
-
-    let page_info = PageInfo {
-        cid: actual_cid,
-        page: 1,
-        name: video_model.name.clone(),
-        duration,
-        first_frame: None,
-        dimension: None,
-    };
-
-    // 创建page记录（这里会自动缓存cid和duration到数据库）
-    create_pages(vec![page_info], &video_model, &txn).await?;
-
-    // 更新视频状态
-    let mut video_active_model: bili_sync_entity::video::ActiveModel = video_model.into();
-    video_source.set_relation_id(&mut video_active_model);
-    video_active_model.single_page = Set(Some(true)); // 番剧的每一集都是单页
-    video_active_model.tags = Set(Some(serde_json::Value::Array(vec![]))); // 空标签数组
-    video_active_model.save(&txn).await?;
-
-    txn.commit().await?;
-
-    Ok(())
-}
-
-/// 获取特定视频源的视频数量
 async fn get_video_count_for_source(video_source: &VideoSourceEnum, connection: &DatabaseConnection) -> Result<usize> {
     let count = video::Entity::find()
         .filter(video_source.filter_expr())
