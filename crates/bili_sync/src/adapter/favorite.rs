@@ -123,6 +123,7 @@ pub async fn init_favorite_sources(
                         latest_row_at: Set("1970-01-01 00:00:00".to_string()),
                         enabled: Set(true),
                         scan_deleted_videos: Set(false),
+                        download_danmaku: Set(false),
                     };
 
                     let result = favorite::Entity::insert(model)
@@ -147,6 +148,7 @@ pub async fn init_favorite_sources(
                         latest_row_at: Set("1970-01-01 00:00:00".to_string()),
                         enabled: Set(true),
                         scan_deleted_videos: Set(false),
+                        download_danmaku: Set(false),
                     };
 
                     let result = favorite::Entity::insert(model)

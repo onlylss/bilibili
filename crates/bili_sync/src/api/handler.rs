@@ -11,7 +11,7 @@ use bili_sync_entity::{collection, favorite, page, submission, video, video_sour
 use bili_sync_migration::Expr;
 use reqwest;
 use sea_orm::{
-    ColumnTrait, Condition, ConnectionTrait, DatabaseConnection, EntityTrait, FromQueryResult, PaginatorTrait,
+    ColumnTrait, Condition, ConnectionTrait, DatabaseConnection, DatabaseTransaction, EntityTrait, FromQueryResult, PaginatorTrait,
     QueryFilter, QueryOrder, QuerySelect, Set, TransactionTrait, Unchanged,
 };
 use serde::{Deserialize, Serialize};
@@ -26,7 +26,7 @@ use crate::api::error::InnerApiError;
 use crate::api::request::{
     AddVideoSourceRequest, BatchUpdateConfigRequest, ConfigHistoryRequest, QRGenerateRequest, QRPollRequest,
     ResetSpecificTasksRequest, ResetVideoSourcePathRequest, SetupAuthTokenRequest, SubmissionVideosRequest,
-    UpdateConfigItemRequest, UpdateConfigRequest, UpdateCredentialRequest, UpdateVideoStatusRequest, VideosRequest,
+    UpdateConfigItemRequest, UpdateConfigRequest, UpdateCredentialRequest, UpdateVideoSourceDownloadDanmakuRequest, UpdateVideoStatusRequest, VideosRequest,
 };
 use crate::api::response::{
     AddVideoSourceResponse, BangumiSeasonInfo, BangumiSourceListResponse, BangumiSourceOption, ConfigChangeInfo, ConfigHistoryResponse, ConfigItemResponse,
@@ -34,7 +34,7 @@ use crate::api::response::{
     DeleteVideoSourceResponse, HotReloadStatusResponse, InitialSetupCheckResponse, MonitoringStatus, PageInfo,
     QRGenerateResponse, QRPollResponse, QRUserInfo, ResetAllVideosResponse, ResetVideoResponse,
     ResetVideoSourcePathResponse, SetupAuthTokenResponse, SubmissionVideosResponse, UpdateConfigResponse,
-    UpdateCredentialResponse, UpdateVideoStatusResponse, VideoInfo, VideoResponse, VideoSource, VideoSourcesResponse,
+    UpdateCredentialResponse, UpdateVideoSourceDownloadDanmakuResponse, UpdateVideoStatusResponse, VideoInfo, VideoResponse, VideoSource, VideoSourcesResponse,
     VideosResponse,
 };
 use crate::api::wrapper::{ApiError, ApiResponse};
@@ -413,10 +413,6 @@ pub async fn get_video_sources(
             video_source::Column::MediaId,
             video_source::Column::SelectedSeasons,
         ])
-        .column_as(Expr::value(None::<i64>), "f_id")
-        .column_as(Expr::value(None::<i64>), "s_id")
-        .column_as(Expr::value(None::<i64>), "m_id")
-        .column_as(Expr::value(None::<i64>), "upper_id")
         .into_tuple::<(
             i32,
             String,
@@ -427,10 +423,6 @@ pub async fn get_video_sources(
             Option<String>,
             Option<String>,
             Option<String>,
-            Option<i64>,
-            Option<i64>,
-            Option<i64>,
-            Option<i64>,
         )>()
         .all(db.as_ref())
         .await?
@@ -446,10 +438,6 @@ pub async fn get_video_sources(
                 season_id,
                 media_id,
                 selected_seasons_json,
-                f_id,
-                s_id,
-                m_id,
-                upper_id,
             )| {
                 let selected_seasons = selected_seasons_json.as_ref().and_then(|json| {
                     match serde_json::from_str::<Vec<String>>(json) {
@@ -468,10 +456,10 @@ pub async fn get_video_sources(
                     path,
                     scan_deleted_videos,
                     download_danmaku,
-                    f_id,
-                    s_id,
-                    m_id,
-                    upper_id,
+                    f_id: None,
+                    s_id: None,
+                    m_id: None,
+                    upper_id: None,
                     season_id,
                     media_id,
                     selected_seasons,
@@ -1791,6 +1779,7 @@ pub async fn add_video_source_internal(
                 latest_row_at: sea_orm::Set("1970-01-01 00:00:00".to_string()),
                 enabled: sea_orm::Set(true),
                 scan_deleted_videos: sea_orm::Set(false),
+                download_danmaku: sea_orm::Set(false),
                 cover: sea_orm::Set(cover_url),
             };
 
@@ -1834,6 +1823,7 @@ pub async fn add_video_source_internal(
                 latest_row_at: sea_orm::Set("1970-01-01 00:00:00".to_string()),
                 enabled: sea_orm::Set(true),
                 scan_deleted_videos: sea_orm::Set(false),
+                download_danmaku: sea_orm::Set(false),
             };
 
             let insert_result = favorite::Entity::insert(favorite).exec(&txn).await?;
@@ -1876,6 +1866,7 @@ pub async fn add_video_source_internal(
                 latest_row_at: sea_orm::Set("1970-01-01 00:00:00".to_string()),
                 enabled: sea_orm::Set(true),
                 scan_deleted_videos: sea_orm::Set(false),
+                download_danmaku: sea_orm::Set(false),
                 selected_videos: sea_orm::Set(
                     params
                         .selected_videos
@@ -2219,6 +2210,7 @@ pub async fn add_video_source_internal(
                 latest_row_at: sea_orm::Set(crate::utils::time_format::now_standard_string()),
                 enabled: sea_orm::Set(true),
                 scan_deleted_videos: sea_orm::Set(false),
+                download_danmaku: sea_orm::Set(false),
             };
 
             let insert_result = watch_later::Entity::insert(watch_later).exec(&txn).await?;
@@ -2736,7 +2728,7 @@ async fn delete_danmaku_files_for_source(
         }
         "bangumi" => {
             entities::video::Entity::find()
-                .filter(entities::video::Column::VideoSourceId.eq(source_id))
+                .filter(entities::video::Column::SourceId.eq(source_id))
                 .select_only()
                 .column(entities::video::Column::Id)
                 .into_tuple()

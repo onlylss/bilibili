@@ -225,6 +225,7 @@ pub async fn init_submission_sources(
                         latest_row_at: Set("1970-01-01 00:00:00".to_string()),
                         enabled: Set(true),
                         scan_deleted_videos: Set(false),
+                        download_danmaku: Set(false),
                         selected_videos: Set(None),
                     };
 
@@ -248,6 +249,7 @@ pub async fn init_submission_sources(
                         latest_row_at: Set("1970-01-01 00:00:00".to_string()),
                         enabled: Set(true),
                         scan_deleted_videos: Set(false),
+                        download_danmaku: Set(false),
                         selected_videos: Set(None),
                     };
 
