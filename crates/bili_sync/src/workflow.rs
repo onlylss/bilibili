@@ -3441,7 +3441,8 @@ async fn check_danmaku_work_needed(
     if !pages_to_reset.is_empty() {
         use crate::utils::status::PageStatus;
 
-        info!("发现 {} 个页面的弹幕文件需要处理，正在重置弹幕下载状态...", pages_to_reset.len());
+        let pages_count = pages_to_reset.len();
+        info!("发现 {} 个页面的弹幕文件需要处理，正在重置弹幕下载状态...", pages_count);
 
         for (page_id, download_status) in pages_to_reset {
             let mut page_status = PageStatus::from(download_status);
@@ -3458,7 +3459,7 @@ async fn check_danmaku_work_needed(
             .await?;
         }
 
-        info!("已重置 {} 个页面的弹幕下载状态", pages_to_reset.len());
+        info!("已重置 {} 个页面的弹幕下载状态", pages_count);
     }
 
     Ok(has_work)
