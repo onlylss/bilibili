@@ -983,13 +983,8 @@ impl AddTaskQueue {
                 path: task.path.clone(),
                 up_id: task.up_id.clone(),
                 collection_type: task.collection_type.clone(),
-                media_id: task.media_id.clone(),
-                ep_id: task.ep_id.clone(),
-                download_all_seasons: task.download_all_seasons,
-                selected_seasons: task.selected_seasons.clone(),
                 selected_videos: None, // 任务队列中暂时不支持选择性视频
                 cover: None,           // 任务队列中暂时不支持封面，等前端传递
-                merge_to_source_id: None, // 任务队列中暂时不支持合并功能
             };
 
             match add_video_source_internal(db.clone(), request).await {

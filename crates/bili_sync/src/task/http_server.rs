@@ -9,7 +9,6 @@ use axum::{middleware, Extension, Router, ServiceExt};
 use reqwest::StatusCode;
 use rust_embed::Embed;
 use sea_orm::{ConnectionTrait, DatabaseBackend, DatabaseConnection, Statement};
-use utoipa::OpenApi;
 use utoipa_swagger_ui::{Config, SwaggerUi};
 
 use crate::api::auth;

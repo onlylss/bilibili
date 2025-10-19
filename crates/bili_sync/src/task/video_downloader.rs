@@ -101,26 +101,6 @@ async fn load_video_sources_from_db(
         });
     }
 
-    // 加载番剧源（只加载启用的）
-    let bangumi_sources = entities::video_source::Entity::find()
-        .filter(entities::video_source::Column::Type.eq(1))
-        .filter(entities::video_source::Column::Enabled.eq(true))
-        .all(connection.as_ref())
-        .await?;
-
-    for bangumi in bangumi_sources {
-        video_sources.push(VideoSourceWithId {
-            id: bangumi.id,
-            args: Args::Bangumi {
-                season_id: bangumi.season_id,
-                media_id: bangumi.media_id,
-                ep_id: bangumi.ep_id,
-            },
-            path: PathBuf::from(bangumi.path),
-            source_type: SourceType::Bangumi,
-        });
-    }
-
     Ok(video_sources)
 }
 
@@ -357,7 +337,6 @@ pub async fn video_downloader(connection: Arc<DatabaseConnection>) {
                         crate::adapter::Args::Favorite { .. } => "收藏夹",
                         crate::adapter::Args::Submission { .. } => "UP主投稿",
                         crate::adapter::Args::WatchLater => "稍后观看",
-                        crate::adapter::Args::Bangumi { .. } => "番剧",
                     };
                     debug!("  - {} (ID: {})", source_name, source.id);
                 }
@@ -431,7 +410,6 @@ pub async fn video_downloader(connection: Arc<DatabaseConnection>) {
                             crate::adapter::Args::Favorite { .. } => "收藏夹",
                             crate::adapter::Args::Collection { .. } => "合集",
                             crate::adapter::Args::WatchLater => "稍后再看",
-                            crate::adapter::Args::Bangumi { .. } => "番剧",
                         };
 
                         info!("处理下一个{}前延迟 {} 秒，避免触发风控...", source_type, delay_seconds);

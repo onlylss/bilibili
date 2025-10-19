@@ -9781,5 +9781,3 @@ async fn get_collection_cover_from_api(
 
     Err(anyhow!("未找到合集ID {} (UP主: {})", collection_id, up_id))
 }
-
-/// 处理番剧合并到现有源的逻辑
