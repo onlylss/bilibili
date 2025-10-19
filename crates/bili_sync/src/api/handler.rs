@@ -11,7 +11,7 @@ use bili_sync_entity::{collection, favorite, page, submission, video, video_sour
 use bili_sync_migration::Expr;
 use reqwest;
 use sea_orm::{
-    ColumnTrait, Condition, ConnectionTrait, DatabaseConnection, DatabaseTransaction, EntityTrait, FromQueryResult, PaginatorTrait,
+    ColumnTrait, Condition, ConnectionTrait, DatabaseConnection, EntityTrait, FromQueryResult, PaginatorTrait,
     QueryFilter, QueryOrder, QuerySelect, Set, TransactionTrait, Unchanged,
 };
 use serde::{Deserialize, Serialize};
