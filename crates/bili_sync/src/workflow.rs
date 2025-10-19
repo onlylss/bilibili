@@ -1096,31 +1096,23 @@ pub async fn download_video_pages(
     let mut status = VideoStatus::from(video_model.download_status);
     let separate_status = status.should_run();
 
-    // 检查是否为番剧
-    let is_bangumi = matches!(video_source, VideoSourceEnum::BangumiSource(_));
-
     // 检查是否为合集
     let is_collection = matches!(video_source, VideoSourceEnum::Collection(_));
 
-    // 定义最终使用的视频模型
-    let final_video_model = if is_bangumi {
-        video_model.clone()
+    // 重新从数据库加载视频信息，以获取可能在fetch_video_details中更新的upper信息
+    let final_video_model = if let Ok(Some(updated)) = video::Entity::find_by_id(video_model.id).one(connection).await {
+        debug!(
+            "重新加载视频信息: upper_name={}, upper_id={}",
+            updated.upper_name, updated.upper_id
+        );
+        updated
     } else {
-        // 对于非番剧，重新从数据库加载视频信息，以获取可能在fetch_video_details中更新的upper信息
-        if let Ok(Some(updated)) = video::Entity::find_by_id(video_model.id).one(connection).await {
-            debug!(
-                "重新加载视频信息: upper_name={}, upper_id={}",
-                updated.upper_name, updated.upper_id
-            );
-            updated
-        } else {
-            debug!("无法重新加载视频信息，使用原始模型");
-            video_model.clone()
-        }
+        debug!("无法重新加载视频信息，使用原始模型");
+        video_model.clone()
     };
 
     // 对于已经获取过详情但可能需要合作视频重新归类的普通视频，进行检测
-    let final_video_model = if !is_bangumi {
+    let final_video_model = {
         // 检查是否需要进行合作视频检测（只对有staff信息的视频）
         if let Some(staff_info) = &final_video_model.staff_info {
             if let Ok(staff_list) = serde_json::from_value::<Vec<crate::bilibili::StaffInfo>>(staff_info.clone()) {
@@ -1206,169 +1198,9 @@ pub async fn download_video_pages(
             debug!("视频 {} 没有staff信息 (下载阶段)", final_video_model.bvid);
             final_video_model
         }
-    } else {
-        final_video_model
     };
 
-    // 为番剧获取API数据用于NFO生成
-    let season_info = if is_bangumi && video_model.season_id.is_some() {
-        let season_id = video_model.season_id.as_ref().unwrap();
-        match get_season_info_from_api(bili_client, season_id, token.clone()).await {
-            Ok(info) => {
-                debug!("成功获取番剧 {} 的API信息用于NFO生成", info.title);
-                Some(info)
-            }
-            Err(e) => {
-                warn!(
-                    "获取番剧 {} (season_id: {}) 的API信息失败: {}",
-                    video_model.name, season_id, e
-                );
-                None
-            }
-        }
-    } else {
-        None
-    };
-
-    // 获取番剧源和季度信息
-    let (base_path, season_folder, bangumi_folder_path) = if is_bangumi {
-        let bangumi_source = match video_source {
-            VideoSourceEnum::BangumiSource(source) => source,
-            _ => unreachable!(),
-        };
-
-        // 为番剧创建独立的文件夹：配置路径 -> 番剧文件夹 -> Season文件夹
-        let bangumi_root_path = bangumi_source.path();
-
-        // 创建临时的page模型来获取格式化参数（只创建一次，避免重复）
-        let temp_page = bili_sync_entity::page::Model {
-            id: 0,
-            video_id: video_model.id,
-            cid: 0,
-            pid: 1,
-            name: "temp".to_string(),
-            width: None,
-            height: None,
-            duration: 0,
-            path: None,
-            image: None,
-            download_status: 0,
-            created_at: now_standard_string(),
-        };
-
-        // 获取真实的番剧标题（从缓存或API）
-        let api_title = if let Some(ref season_id) = video_model.season_id {
-            get_cached_season_title(bili_client, season_id, token.clone()).await
-        } else {
-            None
-        };
-
-        // 使用番剧格式化参数，优先使用API提供的真实标题
-        let format_args =
-            crate::utils::format_arg::bangumi_page_format_args(&video_model, &temp_page, api_title.as_deref());
-
-        // 检查是否有有效的series_title，如果没有则跳过番剧处理
-        let series_title = format_args["series_title"].as_str().unwrap_or("");
-        if series_title.is_empty() {
-            return Err(anyhow::anyhow!(
-                "番剧 {} (BVID: {}) 缺少API标题数据，无法创建番剧文件夹",
-                video_model.name,
-                video_model.bvid
-            ));
-        }
-
-        // 生成番剧文件夹名称
-        let bangumi_folder_name =
-            crate::config::with_config(|bundle| bundle.render_bangumi_folder_template(&format_args))
-                .map_err(|e| anyhow::anyhow!("渲染番剧文件夹模板失败: {}", e))?;
-
-        // 番剧文件夹路径
-        let bangumi_folder_path = bangumi_root_path.join(&bangumi_folder_name);
-
-        // 延迟创建番剧文件夹，只在实际需要时创建
-
-        // 检查是否启用番剧Season结构
-        let use_bangumi_season_structure =
-            crate::config::with_config(|bundle| bundle.config.bangumi_use_season_structure);
-
-        if use_bangumi_season_structure {
-            // 启用番剧Season结构：创建统一的系列根目录，在其下创建Season子目录
-
-            // 提取基础系列名称和季度信息
-            let series_title = api_title.as_deref().unwrap_or(&video_model.name);
-            let season_title = format_args.get("season_title").and_then(|v| v.as_str());
-
-            let (base_series_name_raw, season_number) =
-                crate::utils::bangumi_name_extractor::BangumiNameExtractor::extract_series_name_and_season(
-                    series_title,
-                    season_title,
-                );
-
-            // 系列根目录路径，直接使用提取后的基础系列名称（不应用标准化）
-            // 这样确保同一系列的不同季度使用相同的根目录
-            let series_root_path = bangumi_root_path.join(&base_series_name_raw);
-
-            // 生成标准的Season文件夹名称，根据实际季度编号生成
-            let season_folder_name = format!("Season {:02}", season_number);
-            let season_path = series_root_path.join(&season_folder_name);
-
-            (season_path, Some(season_folder_name), Some(series_root_path))
-        } else {
-            // 原有逻辑：根据配置决定是否创建季度子目录
-            let should_create_season_folder = bangumi_source.download_all_seasons
-                || (bangumi_source
-                    .selected_seasons
-                    .as_ref()
-                    .map(|s| !s.is_empty())
-                    .unwrap_or(false))
-                || video_model.season_id.is_some(); // 单季度番剧：如果有season_id就创建目录
-
-            if should_create_season_folder && video_model.season_id.is_some() {
-                // 使用配置的folder_structure模板生成季度文件夹名称（复用已有的format_args）
-                let season_folder_name =
-                    crate::config::with_config(|bundle| bundle.render_folder_structure_template(&format_args))
-                        .map_err(|e| anyhow::anyhow!("渲染季度文件夹模板失败: {}", e))?;
-
-                (
-                    bangumi_folder_path.join(&season_folder_name),
-                    Some(season_folder_name),
-                    Some(bangumi_folder_path),
-                )
-            } else {
-                // 不启用下载所有季度且没有选中特定季度时，直接使用番剧文件夹路径
-                (bangumi_folder_path.clone(), None, Some(bangumi_folder_path))
-            }
-        }
-    } else {
-        // 非番剧使用原来的逻辑，但对合集进行特殊处理
-        // 【重要】：始终从视频源的原始路径开始计算，避免使用已保存的视频路径
-        let video_source_base_path = video_source.path();
-
-        debug!("=== 路径计算开始 ===");
-        debug!("视频源基础路径: {:?}", video_source_base_path);
-        debug!("视频BVID: {}", final_video_model.bvid);
-        debug!(
-            "视频UP主: {} ({})",
-            final_video_model.upper_name, final_video_model.upper_id
-        );
-        debug!("数据库中保存的路径: {:?}", final_video_model.path);
-        debug!("注意：将忽略数据库中的路径，从视频源基础路径重新计算");
-
-        let path = if let VideoSourceEnum::Collection(collection_source) = video_source {
-            // 合集的特殊处理
-            let config = crate::config::reload_config();
-            match config.collection_folder_mode.as_ref() {
-                "unified" => {
-                    // 统一模式：所有视频放在以合集名称命名的同一个文件夹下
-                    let safe_collection_name = crate::utils::filenamify::filenamify(&collection_source.name);
-                    debug!(
-                        "合集统一模式 - 原名称: '{}', 安全化后: '{}'",
-                        collection_source.name, safe_collection_name
-                    );
-                    video_source_base_path.join(&safe_collection_name)
-                }
-                _ => {
-                    // 分离模式（默认）：每个视频有自己的文件夹
+    // 获取视频源基础路径
                     let base_folder_name = crate::config::with_config(|bundle| {
                         bundle.render_video_template(&video_format_args(&final_video_model))
                     })
