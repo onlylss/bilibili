@@ -88,6 +88,7 @@ targets/
 日志
 *.log
 log*
+!web/src/routes/logs/
 # Dockerfile copies
 Dockerfile*副本
 Dockerfile - 副本
