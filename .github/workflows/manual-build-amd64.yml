@@ -48,7 +48,7 @@ jobs:
 
       - name: 生成时间戳
         id: timestamp
-        run: echo "timestamp=$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_OUTPUT
+        run: echo "timestamp=$(TZ='Asia/Shanghai' date +'%Y%m%d-%H%M%S')" >> $GITHUB_OUTPUT
 
       - name: 构建 Docker 镜像
         run: |
