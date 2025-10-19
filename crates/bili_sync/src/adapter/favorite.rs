@@ -76,6 +76,10 @@ impl VideoSource for favorite::Model {
         self.scan_deleted_videos
     }
 
+    fn download_danmaku(&self) -> bool {
+        self.download_danmaku
+    }
+
     fn source_type_display(&self) -> String {
         "收藏夹".to_string()
     }

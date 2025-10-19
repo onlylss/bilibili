@@ -190,6 +190,7 @@ pub async fn get_video_sources(
             collection::Column::Enabled,
             collection::Column::Path,
             collection::Column::ScanDeletedVideos,
+            collection::Column::DownloadDanmaku,
             collection::Column::SId,
             collection::Column::MId,
         ])
@@ -203,6 +204,7 @@ pub async fn get_video_sources(
             bool,
             String,
             bool,
+            bool,
             i64,
             i64,
             Option<i64>,
@@ -214,13 +216,14 @@ pub async fn get_video_sources(
         .await?
         .into_iter()
         .map(
-            |(id, name, enabled, path, scan_deleted_videos, s_id, m_id, f_id, upper_id, season_id, media_id)| {
+            |(id, name, enabled, path, scan_deleted_videos, download_danmaku, s_id, m_id, f_id, upper_id, season_id, media_id)| {
                 VideoSource {
                     id,
                     name,
                     enabled,
                     path,
                     scan_deleted_videos,
+                    download_danmaku,
                     f_id,
                     s_id: Some(s_id),
                     m_id: Some(m_id),
@@ -241,6 +244,7 @@ pub async fn get_video_sources(
             favorite::Column::Enabled,
             favorite::Column::Path,
             favorite::Column::ScanDeletedVideos,
+            favorite::Column::DownloadDanmaku,
             favorite::Column::FId,
         ])
         .column_as(Expr::value(None::<i64>), "s_id")
@@ -254,6 +258,7 @@ pub async fn get_video_sources(
             bool,
             String,
             bool,
+            bool,
             i64,
             Option<i64>,
             Option<i64>,
@@ -265,13 +270,14 @@ pub async fn get_video_sources(
         .await?
         .into_iter()
         .map(
-            |(id, name, enabled, path, scan_deleted_videos, f_id, s_id, m_id, upper_id, season_id, media_id)| {
+            |(id, name, enabled, path, scan_deleted_videos, download_danmaku, f_id, s_id, m_id, upper_id, season_id, media_id)| {
                 VideoSource {
                     id,
                     name,
                     enabled,
                     path,
                     scan_deleted_videos,
+                    download_danmaku,
                     f_id: Some(f_id),
                     s_id,
                     m_id,
@@ -291,6 +297,7 @@ pub async fn get_video_sources(
             submission::Column::Enabled,
             submission::Column::Path,
             submission::Column::ScanDeletedVideos,
+            submission::Column::DownloadDanmaku,
             submission::Column::UpperId,
         ])
         .column_as(submission::Column::UpperName, "name")
@@ -304,6 +311,7 @@ pub async fn get_video_sources(
             bool,
             String,
             bool,
+            bool,
             i64,
             String,
             Option<i64>,
@@ -316,13 +324,14 @@ pub async fn get_video_sources(
         .await?
         .into_iter()
         .map(
-            |(id, enabled, path, scan_deleted_videos, upper_id, name, f_id, s_id, m_id, season_id, media_id)| {
+            |(id, enabled, path, scan_deleted_videos, download_danmaku, upper_id, name, f_id, s_id, m_id, season_id, media_id)| {
                 VideoSource {
                     id,
                     name,
                     enabled,
                     path,
                     scan_deleted_videos,
+                    download_danmaku,
                     f_id,
                     s_id,
                     m_id,
@@ -342,6 +351,7 @@ pub async fn get_video_sources(
             watch_later::Column::Enabled,
             watch_later::Column::Path,
             watch_later::Column::ScanDeletedVideos,
+            watch_later::Column::DownloadDanmaku,
         ])
         .column_as(Expr::value("稍后再看"), "name")
         .column_as(Expr::value(None::<i64>), "f_id")
@@ -355,6 +365,7 @@ pub async fn get_video_sources(
             bool,
             String,
             bool,
+            bool,
             String,
             Option<i64>,
             Option<i64>,
@@ -367,13 +378,14 @@ pub async fn get_video_sources(
         .await?
         .into_iter()
         .map(
-            |(id, enabled, path, scan_deleted_videos, name, f_id, s_id, m_id, upper_id, season_id, media_id)| {
+            |(id, enabled, path, scan_deleted_videos, download_danmaku, name, f_id, s_id, m_id, upper_id, season_id, media_id)| {
                 VideoSource {
                     id,
                     name,
                     enabled,
                     path,
                     scan_deleted_videos,
+                    download_danmaku,
                     f_id,
                     s_id,
                     m_id,
@@ -396,6 +408,7 @@ pub async fn get_video_sources(
             video_source::Column::Enabled,
             video_source::Column::Path,
             video_source::Column::ScanDeletedVideos,
+            video_source::Column::DownloadDanmaku,
             video_source::Column::SeasonId,
             video_source::Column::MediaId,
             video_source::Column::SelectedSeasons,
@@ -409,6 +422,7 @@ pub async fn get_video_sources(
             String,
             bool,
             String,
+            bool,
             bool,
             Option<String>,
             Option<String>,
@@ -428,6 +442,7 @@ pub async fn get_video_sources(
                 enabled,
                 path,
                 scan_deleted_videos,
+                download_danmaku,
                 season_id,
                 media_id,
                 selected_seasons_json,
@@ -452,6 +467,7 @@ pub async fn get_video_sources(
                     enabled,
                     path,
                     scan_deleted_videos,
+                    download_danmaku,
                     f_id,
                     s_id,
                     m_id,
@@ -2462,6 +2478,310 @@ pub async fn update_video_source_enabled_internal(
 
     txn.commit().await?;
     Ok(result)
+}
+
+/// 更新视频源弹幕下载设置
+#[utoipa::path(
+    put,
+    path = "/api/video-sources/{source_type}/{id}/download-danmaku",
+    params(
+        ("source_type" = String, Path, description = "视频源类型"),
+        ("id" = i32, Path, description = "视频源ID")
+    ),
+    request_body = UpdateVideoSourceDownloadDanmakuRequest,
+    responses(
+        (status = 200, body = ApiResponse<UpdateVideoSourceDownloadDanmakuResponse>),
+    )
+)]
+pub async fn update_video_source_download_danmaku(
+    Extension(db): Extension<Arc<DatabaseConnection>>,
+    Path((source_type, id)): Path<(String, i32)>,
+    axum::Json(params): axum::Json<crate::api::request::UpdateVideoSourceDownloadDanmakuRequest>,
+) -> Result<ApiResponse<crate::api::response::UpdateVideoSourceDownloadDanmakuResponse>, ApiError> {
+    update_video_source_download_danmaku_internal(db, source_type, id, params.download_danmaku)
+        .await
+        .map(ApiResponse::ok)
+}
+
+/// 内部更新视频源弹幕下载设置函数
+pub async fn update_video_source_download_danmaku_internal(
+    db: Arc<DatabaseConnection>,
+    source_type: String,
+    id: i32,
+    download_danmaku: bool,
+) -> Result<crate::api::response::UpdateVideoSourceDownloadDanmakuResponse, ApiError> {
+    let txn = db.begin().await?;
+
+    // 如果关闭弹幕下载,需要删除已有的弹幕文件
+    let mut deleted_danmaku_count = 0;
+    if !download_danmaku {
+        deleted_danmaku_count = delete_danmaku_files_for_source(&txn, &source_type, id).await?;
+    }
+
+    let result = match source_type.as_str() {
+        "collection" => {
+            let collection = collection::Entity::find_by_id(id)
+                .one(&txn)
+                .await?
+                .ok_or_else(|| anyhow!("未找到指定的合集"))?;
+
+            collection::Entity::update(collection::ActiveModel {
+                id: sea_orm::ActiveValue::Unchanged(id),
+                download_danmaku: sea_orm::Set(download_danmaku),
+                ..Default::default()
+            })
+            .exec(&txn)
+            .await?;
+
+            crate::api::response::UpdateVideoSourceDownloadDanmakuResponse {
+                success: true,
+                source_id: id,
+                source_type: "collection".to_string(),
+                download_danmaku,
+                deleted_danmaku_count,
+                message: format!(
+                    "合集 {} 已{}弹幕下载{}",
+                    collection.name,
+                    if download_danmaku { "开启" } else { "关闭" },
+                    if !download_danmaku && deleted_danmaku_count > 0 {
+                        format!(",已删除 {} 个弹幕文件", deleted_danmaku_count)
+                    } else {
+                        String::new()
+                    }
+                ),
+            }
+        }
+        "favorite" => {
+            let favorite = favorite::Entity::find_by_id(id)
+                .one(&txn)
+                .await?
+                .ok_or_else(|| anyhow!("未找到指定的收藏夹"))?;
+
+            favorite::Entity::update(favorite::ActiveModel {
+                id: sea_orm::ActiveValue::Unchanged(id),
+                download_danmaku: sea_orm::Set(download_danmaku),
+                ..Default::default()
+            })
+            .exec(&txn)
+            .await?;
+
+            crate::api::response::UpdateVideoSourceDownloadDanmakuResponse {
+                success: true,
+                source_id: id,
+                source_type: "favorite".to_string(),
+                download_danmaku,
+                deleted_danmaku_count,
+                message: format!(
+                    "收藏夹 {} 已{}弹幕下载{}",
+                    favorite.name,
+                    if download_danmaku { "开启" } else { "关闭" },
+                    if !download_danmaku && deleted_danmaku_count > 0 {
+                        format!(",已删除 {} 个弹幕文件", deleted_danmaku_count)
+                    } else {
+                        String::new()
+                    }
+                ),
+            }
+        }
+        "submission" => {
+            let submission = submission::Entity::find_by_id(id)
+                .one(&txn)
+                .await?
+                .ok_or_else(|| anyhow!("未找到指定的UP主投稿"))?;
+
+            submission::Entity::update(submission::ActiveModel {
+                id: sea_orm::ActiveValue::Unchanged(id),
+                download_danmaku: sea_orm::Set(download_danmaku),
+                ..Default::default()
+            })
+            .exec(&txn)
+            .await?;
+
+            crate::api::response::UpdateVideoSourceDownloadDanmakuResponse {
+                success: true,
+                source_id: id,
+                source_type: "submission".to_string(),
+                download_danmaku,
+                deleted_danmaku_count,
+                message: format!(
+                    "UP主投稿 {} 已{}弹幕下载{}",
+                    submission.upper_name,
+                    if download_danmaku { "开启" } else { "关闭" },
+                    if !download_danmaku && deleted_danmaku_count > 0 {
+                        format!(",已删除 {} 个弹幕文件", deleted_danmaku_count)
+                    } else {
+                        String::new()
+                    }
+                ),
+            }
+        }
+        "watch_later" => {
+            let _watch_later = watch_later::Entity::find_by_id(id)
+                .one(&txn)
+                .await?
+                .ok_or_else(|| anyhow!("未找到指定的稍后观看"))?;
+
+            watch_later::Entity::update(watch_later::ActiveModel {
+                id: sea_orm::ActiveValue::Unchanged(id),
+                download_danmaku: sea_orm::Set(download_danmaku),
+                ..Default::default()
+            })
+            .exec(&txn)
+            .await?;
+
+            crate::api::response::UpdateVideoSourceDownloadDanmakuResponse {
+                success: true,
+                source_id: id,
+                source_type: "watch_later".to_string(),
+                download_danmaku,
+                deleted_danmaku_count,
+                message: format!(
+                    "稍后观看已{}弹幕下载{}",
+                    if download_danmaku { "开启" } else { "关闭" },
+                    if !download_danmaku && deleted_danmaku_count > 0 {
+                        format!(",已删除 {} 个弹幕文件", deleted_danmaku_count)
+                    } else {
+                        String::new()
+                    }
+                ),
+            }
+        }
+        "bangumi" => {
+            let bangumi = video_source::Entity::find_by_id(id)
+                .one(&txn)
+                .await?
+                .ok_or_else(|| anyhow!("未找到指定的番剧"))?;
+
+            video_source::Entity::update(video_source::ActiveModel {
+                id: sea_orm::ActiveValue::Unchanged(id),
+                download_danmaku: sea_orm::Set(download_danmaku),
+                ..Default::default()
+            })
+            .exec(&txn)
+            .await?;
+
+            crate::api::response::UpdateVideoSourceDownloadDanmakuResponse {
+                success: true,
+                source_id: id,
+                source_type: "bangumi".to_string(),
+                download_danmaku,
+                deleted_danmaku_count,
+                message: format!(
+                    "番剧 {} 已{}弹幕下载{}",
+                    bangumi.name,
+                    if download_danmaku { "开启" } else { "关闭" },
+                    if !download_danmaku && deleted_danmaku_count > 0 {
+                        format!(",已删除 {} 个弹幕文件", deleted_danmaku_count)
+                    } else {
+                        String::new()
+                    }
+                ),
+            }
+        }
+        _ => {
+            return Err(anyhow!("不支持的视频源类型: {}", source_type).into());
+        }
+    };
+
+    txn.commit().await?;
+    Ok(result)
+}
+
+/// 删除指定视频源的所有弹幕文件
+async fn delete_danmaku_files_for_source(
+    db: &DatabaseTransaction,
+    source_type: &str,
+    source_id: i32,
+) -> Result<usize, ApiError> {
+    use bili_sync_entity::*;
+    use sea_orm::QuerySelect;
+
+    // 根据源类型查询所有属于该源的视频
+    let video_ids: Vec<i32> = match source_type {
+        "collection" => {
+            entities::video::Entity::find()
+                .filter(entities::video::Column::CollectionId.eq(source_id))
+                .select_only()
+                .column(entities::video::Column::Id)
+                .into_tuple()
+                .all(db)
+                .await?
+        }
+        "favorite" => {
+            entities::video::Entity::find()
+                .filter(entities::video::Column::FavoriteId.eq(source_id))
+                .select_only()
+                .column(entities::video::Column::Id)
+                .into_tuple()
+                .all(db)
+                .await?
+        }
+        "submission" => {
+            entities::video::Entity::find()
+                .filter(entities::video::Column::SubmissionId.eq(source_id))
+                .select_only()
+                .column(entities::video::Column::Id)
+                .into_tuple()
+                .all(db)
+                .await?
+        }
+        "watch_later" => {
+            entities::video::Entity::find()
+                .filter(entities::video::Column::WatchLaterId.eq(source_id))
+                .select_only()
+                .column(entities::video::Column::Id)
+                .into_tuple()
+                .all(db)
+                .await?
+        }
+        "bangumi" => {
+            entities::video::Entity::find()
+                .filter(entities::video::Column::VideoSourceId.eq(source_id))
+                .select_only()
+                .column(entities::video::Column::Id)
+                .into_tuple()
+                .all(db)
+                .await?
+        }
+        _ => {
+            return Ok(0);
+        }
+    };
+
+    if video_ids.is_empty() {
+        return Ok(0);
+    }
+
+    // 查询这些视频的所有页面
+    let pages = entities::page::Entity::find()
+        .filter(entities::page::Column::VideoId.is_in(video_ids))
+        .all(db)
+        .await?;
+
+    let mut deleted_count = 0;
+
+    // 删除每个页面的弹幕文件
+    for page in pages {
+        if let Some(path) = &page.path {
+            // 弹幕文件路径为视频路径去掉扩展名后加 .ass
+            let video_path = std::path::Path::new(path);
+            if let Some(parent) = video_path.parent() {
+                if let Some(stem) = video_path.file_stem() {
+                    let danmaku_path = parent.join(format!("{}.ass", stem.to_string_lossy()));
+                    if danmaku_path.exists() {
+                        if let Err(e) = tokio::fs::remove_file(&danmaku_path).await {
+                            warn!("删除弹幕文件失败: {:?}, 错误: {}", danmaku_path, e);
+                        } else {
+                            deleted_count += 1;
+                            info!("已删除弹幕文件: {:?}", danmaku_path);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(deleted_count)
 }
 
 /// 删除视频源

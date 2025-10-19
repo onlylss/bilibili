@@ -17,6 +17,7 @@ pub struct Model {
     pub enabled: bool,
     pub scan_deleted_videos: bool,
     pub cover: Option<String>,
+    pub download_danmaku: bool,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

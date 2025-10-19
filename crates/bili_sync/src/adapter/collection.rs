@@ -85,6 +85,10 @@ impl VideoSource for collection::Model {
         self.scan_deleted_videos
     }
 
+    fn download_danmaku(&self) -> bool {
+        self.download_danmaku
+    }
+
     fn source_type_display(&self) -> String {
         CollectionType::from(self.r#type).to_string()
     }

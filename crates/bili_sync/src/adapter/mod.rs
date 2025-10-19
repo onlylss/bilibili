@@ -92,6 +92,9 @@ pub trait VideoSource {
     /// 获取是否扫描已删除视频的设置
     fn scan_deleted_videos(&self) -> bool;
 
+    /// 获取是否下载弹幕的设置
+    fn download_danmaku(&self) -> bool;
+
     /// 获取选择的视频列表，仅对 submission 类型有效
     /// 返回 Some(Vec<String>) 表示有选择性下载列表，None 表示下载所有视频
     fn get_selected_videos(&self) -> Option<Vec<String>> {
@@ -237,6 +240,7 @@ pub async fn bangumi_from<'a>(
             page_name_template: model.page_name_template,
             selected_seasons,
             scan_deleted_videos: model.scan_deleted_videos,
+            download_danmaku: model.download_danmaku,
         }
     } else {
         // 如果数据库中不存在，使用默认值并发出警告
@@ -260,6 +264,7 @@ pub async fn bangumi_from<'a>(
             page_name_template: None,
             selected_seasons: None,
             scan_deleted_videos: false,
+            download_danmaku: false,
         }
     };
 

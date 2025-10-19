@@ -75,6 +75,10 @@ impl VideoSource for watch_later::Model {
         self.scan_deleted_videos
     }
 
+    fn download_danmaku(&self) -> bool {
+        self.download_danmaku
+    }
+
     fn source_type_display(&self) -> String {
         "稍后再看".to_string()
     }

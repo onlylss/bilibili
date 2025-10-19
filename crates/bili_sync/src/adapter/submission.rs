@@ -151,6 +151,10 @@ impl VideoSource for submission::Model {
         self.scan_deleted_videos
     }
 
+    fn download_danmaku(&self) -> bool {
+        self.download_danmaku
+    }
+
     fn get_selected_videos(&self) -> Option<Vec<String>> {
         self.selected_videos.as_ref().and_then(|json_str| {
             serde_json::from_str::<Vec<String>>(json_str)

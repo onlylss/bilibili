@@ -24,6 +24,7 @@ import type {
 	UserCollectionInfo,
 	QueueStatusResponse,
 	UpdateVideoSourceEnabledResponse,
+	UpdateVideoSourceDownloadDanmakuResponse,
 	ResetVideoSourcePathRequest,
 	ResetVideoSourcePathResponse,
 	UpdateCredentialRequest,
@@ -327,6 +328,23 @@ class ApiClient {
 		return this.put<UpdateVideoSourceEnabledResponse>(
 			`/video-sources/${sourceType}/${id}/scan-deleted`,
 			{ scan_deleted_videos: scanDeleted }
+		);
+	}
+
+	/**
+	 * 更新视频源弹幕下载设置
+	 * @param sourceType 视频源类型
+	 * @param id 视频源ID
+	 * @param downloadDanmaku 是否下载弹幕
+	 */
+	async updateVideoSourceDownloadDanmaku(
+		sourceType: string,
+		id: number,
+		downloadDanmaku: boolean
+	): Promise<ApiResponse<UpdateVideoSourceDownloadDanmakuResponse>> {
+		return this.put<UpdateVideoSourceDownloadDanmakuResponse>(
+			`/video-sources/${sourceType}/${id}/download-danmaku`,
+			{ download_danmaku: downloadDanmaku }
 		);
 	}
 
@@ -792,6 +810,12 @@ export const api = {
 	 */
 	updateVideoSourceScanDeleted: (sourceType: string, id: number, scanDeleted: boolean) =>
 		apiClient.updateVideoSourceScanDeleted(sourceType, id, scanDeleted),
+
+	/**
+	 * 更新视频源弹幕下载设置
+	 */
+	updateVideoSourceDownloadDanmaku: (sourceType: string, id: number, downloadDanmaku: boolean) =>
+		apiClient.updateVideoSourceDownloadDanmaku(sourceType, id, downloadDanmaku),
 
 	/**
 	 * 重设视频源路径

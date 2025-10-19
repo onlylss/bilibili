@@ -18,6 +18,7 @@
 	import FolderOpenIcon from '@lucide/svelte/icons/folder-open';
 	import TrashIcon from '@lucide/svelte/icons/trash-2';
 	import RotateCcwIcon from '@lucide/svelte/icons/rotate-ccw';
+	import MessageSquareIcon from '@lucide/svelte/icons/message-square';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import { goto } from '$app/navigation';
@@ -134,6 +135,34 @@
 		} catch (error: unknown) {
 			console.error('设置更新失败:', error);
 			toast.error('设置更新失败', { description: error.message });
+		}
+	}
+
+	// 切换弹幕下载设置
+	async function handleToggleDownloadDanmaku(
+		sourceType: string,
+		sourceId: number,
+		currentDownloadDanmaku: boolean
+	) {
+		try {
+			const newDownloadDanmaku = !currentDownloadDanmaku;
+			const result = await api.updateVideoSourceDownloadDanmaku(
+				sourceType,
+				sourceId,
+				newDownloadDanmaku
+			);
+
+			if (result.data.success) {
+				toast.success('弹幕设置更新成功', {
+					description: result.data.message
+				});
+				await loadVideoSources();
+			} else {
+				toast.error('弹幕设置更新失败', { description: result.data.message });
+			}
+		} catch (error: unknown) {
+			console.error('弹幕设置更新失败:', error);
+			toast.error('弹幕设置更新失败', { description: error.message });
 		}
 	}
 
@@ -330,6 +359,9 @@
 												{#if source.scan_deleted_videos}
 													<div class="mt-1 text-xs text-blue-600">扫描删除视频已启用</div>
 												{/if}
+												{#if source.download_danmaku}
+													<div class="mt-1 text-xs text-purple-600">弹幕下载已启用</div>
+												{/if}
 											</div>
 
 											<div class="flex items-center justify-end gap-1 sm:ml-4">
@@ -380,6 +412,26 @@
 													<RotateCcwIcon
 														class="h-4 w-4 {source.scan_deleted_videos
 															? 'text-blue-600'
+															: 'text-gray-400'}"
+													/>
+												</Button>
+
+												<!-- 弹幕下载设置 -->
+												<Button
+													size="sm"
+													variant="ghost"
+													onclick={() =>
+														handleToggleDownloadDanmaku(
+															sourceConfig.type,
+															source.id,
+															source.download_danmaku
+														)}
+													title={source.download_danmaku ? '禁用弹幕下载' : '启用弹幕下载'}
+													class="h-8 w-8 p-0"
+												>
+													<MessageSquareIcon
+														class="h-4 w-4 {source.download_danmaku
+															? 'text-purple-600'
 															: 'text-gray-400'}"
 													/>
 												</Button>

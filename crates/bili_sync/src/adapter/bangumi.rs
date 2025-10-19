@@ -30,6 +30,7 @@ pub struct BangumiSource {
     pub page_name_template: Option<String>,
     pub selected_seasons: Option<Vec<String>>,
     pub scan_deleted_videos: bool,
+    pub download_danmaku: bool,
 }
 
 impl BangumiSource {
@@ -475,6 +476,10 @@ impl VideoSource for BangumiSource {
 
     fn scan_deleted_videos(&self) -> bool {
         self.scan_deleted_videos
+    }
+
+    fn download_danmaku(&self) -> bool {
+        self.download_danmaku
     }
 
     fn source_type_display(&self) -> String {

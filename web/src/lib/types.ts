@@ -32,6 +32,7 @@ export interface VideoSource {
 	enabled: boolean;
 	path: string;
 	scan_deleted_videos: boolean;
+	download_danmaku: boolean;
 	// 类型特有的ID字段
 	f_id?: number; // 收藏夹ID
 	s_id?: number; // 合集ID
@@ -588,6 +589,21 @@ export interface UpdateVideoSourceScanDeletedResponse {
 	source_id: number;
 	source_type: string;
 	scan_deleted_videos: boolean;
+	message: string;
+}
+
+// 更新视频源弹幕下载设置请求类型
+export interface UpdateVideoSourceDownloadDanmakuRequest {
+	download_danmaku: boolean;
+}
+
+// 更新视频源弹幕下载设置响应类型
+export interface UpdateVideoSourceDownloadDanmakuResponse {
+	success: boolean;
+	source_id: number;
+	source_type: string;
+	download_danmaku: boolean;
+	deleted_danmaku_count: number;
 	message: string;
 }
 

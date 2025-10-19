@@ -69,6 +69,7 @@ use crate::api::handler::{
     update_notification_config,
     update_video_source_enabled,
     update_video_source_scan_deleted,
+    update_video_source_download_danmaku,
     update_video_status,
     validate_config,
     validate_favorite,
@@ -147,6 +148,10 @@ pub async fn http_server(_database_connection: Arc<DatabaseConnection>) -> Resul
         .route(
             "/api/video-sources/{source_type}/{id}/scan-deleted",
             put(update_video_source_scan_deleted),
+        )
+        .route(
+            "/api/video-sources/{source_type}/{id}/download-danmaku",
+            put(update_video_source_download_danmaku),
         )
         .route(
             "/api/video-sources/{source_type}/{id}/reset-path",

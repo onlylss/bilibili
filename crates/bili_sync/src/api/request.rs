@@ -73,6 +73,12 @@ pub struct UpdateVideoSourceScanDeletedRequest {
     pub scan_deleted_videos: bool,
 }
 
+// 更新视频源弹幕下载设置的请求结构体
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct UpdateVideoSourceDownloadDanmakuRequest {
+    pub download_danmaku: bool,
+}
+
 // 重设视频源路径的请求结构体
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct ResetVideoSourcePathRequest {

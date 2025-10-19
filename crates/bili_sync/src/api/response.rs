@@ -120,6 +120,16 @@ pub struct UpdateVideoSourceScanDeletedResponse {
 }
 
 #[derive(Serialize, ToSchema)]
+pub struct UpdateVideoSourceDownloadDanmakuResponse {
+    pub success: bool,
+    pub source_id: i32,
+    pub source_type: String,
+    pub download_danmaku: bool,
+    pub deleted_danmaku_count: usize,
+    pub message: String,
+}
+
+#[derive(Serialize, ToSchema)]
 pub struct ResetVideoSourcePathResponse {
     pub success: bool,
     pub source_id: i32,
@@ -159,6 +169,7 @@ pub struct VideoSource {
     pub enabled: bool,
     pub path: String,
     pub scan_deleted_videos: bool,
+    pub download_danmaku: bool,
     // 类型特有的ID字段
     pub f_id: Option<i64>,         // 收藏夹ID
     pub s_id: Option<i64>,         // 合集ID

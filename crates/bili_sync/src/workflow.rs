@@ -2775,7 +2775,7 @@ pub async fn download_page(
         ),
         generate_page_nfo(separate_status[2], video_model, &page_model, nfo_path, connection),
         fetch_page_danmaku(
-            separate_status[3],
+            separate_status[3] && video_source.download_danmaku(),
             bili_client,
             video_model,
             &page_info,
