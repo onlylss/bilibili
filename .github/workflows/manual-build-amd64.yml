@@ -1,7 +1,16 @@
-name: 手动构建 AMD64
+name: 构建 AMD64
 
 on:
+  # 支持手动触发
   workflow_dispatch:
+  # 推送到 main 分支时自动构建
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
+      - 'LICENSE'
 
 jobs:
   build:
