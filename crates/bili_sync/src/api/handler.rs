@@ -196,8 +196,6 @@ pub async fn get_video_sources(
         ])
         .column_as(Expr::value(None::<i64>), "f_id")
         .column_as(Expr::value(None::<i64>), "upper_id")
-        .column_as(Expr::value(None::<String>), "season_id")
-        .column_as(Expr::value(None::<String>), "media_id")
         .into_tuple::<(
             i32,
             String,
@@ -209,14 +207,12 @@ pub async fn get_video_sources(
             i64,
             Option<i64>,
             Option<i64>,
-            Option<String>,
-            Option<String>,
         )>()
         .all(db.as_ref())
         .await?
         .into_iter()
         .map(
-            |(id, name, enabled, path, scan_deleted_videos, download_danmaku, s_id, m_id, f_id, upper_id, season_id, media_id)| {
+            |(id, name, enabled, path, scan_deleted_videos, download_danmaku, s_id, m_id, f_id, upper_id)| {
                 VideoSource {
                     id,
                     name,
@@ -228,9 +224,6 @@ pub async fn get_video_sources(
                     s_id: Some(s_id),
                     m_id: Some(m_id),
                     upper_id,
-                    season_id,
-                    media_id,
-                    selected_seasons: None,
                 }
             },
         )
@@ -250,8 +243,6 @@ pub async fn get_video_sources(
         .column_as(Expr::value(None::<i64>), "s_id")
         .column_as(Expr::value(None::<i64>), "m_id")
         .column_as(Expr::value(None::<i64>), "upper_id")
-        .column_as(Expr::value(None::<String>), "season_id")
-        .column_as(Expr::value(None::<String>), "media_id")
         .into_tuple::<(
             i32,
             String,
@@ -263,14 +254,12 @@ pub async fn get_video_sources(
             Option<i64>,
             Option<i64>,
             Option<i64>,
-            Option<String>,
-            Option<String>,
         )>()
         .all(db.as_ref())
         .await?
         .into_iter()
         .map(
-            |(id, name, enabled, path, scan_deleted_videos, download_danmaku, f_id, s_id, m_id, upper_id, season_id, media_id)| {
+            |(id, name, enabled, path, scan_deleted_videos, download_danmaku, f_id, s_id, m_id, upper_id)| {
                 VideoSource {
                     id,
                     name,
@@ -282,9 +271,6 @@ pub async fn get_video_sources(
                     s_id,
                     m_id,
                     upper_id,
-                    season_id,
-                    media_id,
-                    selected_seasons: None,
                 }
             },
         )
