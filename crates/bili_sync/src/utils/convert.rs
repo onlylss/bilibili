@@ -138,77 +138,6 @@ impl VideoInfo {
                 cid: Set(None), // 后续通过get_view_info填充
                 ..default
             },
-            VideoInfo::Bangumi {
-                title,
-                bvid,
-                season_id,
-                ep_id,
-                cid,
-                cover,
-                intro,
-                pubtime,
-                show_title,
-                season_number,
-                episode_number,
-                share_copy,
-                show_season_type,
-                actors,
-                ..
-            } => {
-                // 对于番剧，智能选择最详细的标题作为name
-                // 对于番剧影视类型(show_season_type=2)，不使用share_copy避免文件名过长
-                // 优先级：番剧影视类型(show_title > title)，常规番剧(share_copy > show_title > title)
-                tracing::debug!(
-                    "处理番剧转换: title={}, share_copy={:?}, show_title={:?}, show_season_type={:?}",
-                    title,
-                    share_copy,
-                    show_title,
-                    show_season_type
-                );
-                let intelligent_name = if show_season_type == Some(2) {
-                    // 番剧影视类型，使用简化命名，直接使用title（如"日配"、"中配"）
-                    &title
-                } else {
-                    // 常规番剧类型，使用详细命名
-                    share_copy
-                        .as_ref()
-                        .filter(|s| !s.is_empty() && s.len() > title.len()) // 只有当share_copy更详细时才使用
-                        .map(|s| s.as_str())
-                        .or(show_title.as_deref())
-                        .unwrap_or(&title)
-                };
-                tracing::debug!("选择的intelligent_name: {}", intelligent_name);
-
-                // 记录actors字段信息
-                if actors.is_some() {
-                    tracing::debug!("convert.rs - 准备保存的演员信息: {:?}", actors);
-                }
-
-                bili_sync_entity::video::ActiveModel {
-                    bvid: Set(bvid),
-                    name: Set(intelligent_name.to_string()),
-                    intro: Set(intro),
-                    cover: Set(cover),
-                    pubtime: Set(pubtime
-                        .with_timezone(&crate::utils::time_format::beijing_timezone())
-                        .naive_local()),
-                    favtime: Set(pubtime
-                        .with_timezone(&crate::utils::time_format::beijing_timezone())
-                        .naive_local()),
-                    category: Set(1), // 番剧类型
-                    valid: Set(true),
-                    season_id: Set(Some(season_id)),
-                    ep_id: Set(Some(ep_id)),
-                    season_number: Set(season_number),
-                    episode_number: Set(episode_number),
-                    share_copy: Set(share_copy),
-                    show_season_type: Set(show_season_type),
-                    actors: Set(actors),
-                    cid: Set(cid.parse::<i64>().ok()), // 番剧直接有cid
-                    ..default
-                }
-            }
-            _ => unreachable!(),
         }
     }
 
@@ -275,8 +204,7 @@ impl VideoInfo {
             VideoInfo::Collection { pubtime: time, .. }
             | VideoInfo::Favorite { fav_time: time, .. }
             | VideoInfo::WatchLater { fav_time: time, .. }
-            | VideoInfo::Submission { ctime: time, .. }
-            | VideoInfo::Bangumi { pubtime: time, .. } => time,
+            | VideoInfo::Submission { ctime: time, .. } => time,
             _ => unreachable!(),
         }
     }

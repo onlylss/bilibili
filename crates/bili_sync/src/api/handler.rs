@@ -29,7 +29,7 @@ use crate::api::request::{
     UpdateConfigItemRequest, UpdateConfigRequest, UpdateCredentialRequest, UpdateVideoSourceDownloadDanmakuRequest, UpdateVideoStatusRequest, VideosRequest,
 };
 use crate::api::response::{
-    AddVideoSourceResponse, BangumiSeasonInfo, BangumiSourceListResponse, BangumiSourceOption, ConfigChangeInfo, ConfigHistoryResponse, ConfigItemResponse,
+    AddVideoSourceResponse, ConfigChangeInfo, ConfigHistoryResponse, ConfigItemResponse,
     ConfigReloadResponse, ConfigResponse, ConfigValidationResponse, DashBoardResponse, DeleteVideoResponse,
     DeleteVideoSourceResponse, HotReloadStatusResponse, InitialSetupCheckResponse, MonitoringStatus, PageInfo,
     QRGenerateResponse, QRPollResponse, QRUserInfo, ResetAllVideosResponse, ResetVideoResponse,
@@ -153,7 +153,7 @@ mod rename_tests {
 
 #[derive(OpenApi)]
 #[openapi(
-    paths(get_video_sources, get_videos, get_video, reset_video, reset_all_videos, reset_specific_tasks, update_video_status, add_video_source, update_video_source_enabled, update_video_source_scan_deleted, reset_video_source_path, delete_video_source, reload_config, get_config, update_config, get_bangumi_seasons, search_bilibili, get_user_favorites, get_user_collections, get_user_followings, get_subscribed_collections, get_submission_videos, get_logs, get_queue_status, proxy_image, get_config_item, get_config_history, validate_config, get_hot_reload_status, check_initial_setup, setup_auth_token, update_credential, generate_qr_code, poll_qr_status, get_current_user, clear_credential, pause_scanning_endpoint, resume_scanning_endpoint, get_task_control_status, get_video_play_info, proxy_video_stream, validate_favorite, get_user_favorites_by_uid, test_notification_handler, get_notification_config, update_notification_config, get_notification_status, test_risk_control_handler),
+    paths(get_video_sources, get_videos, get_video, reset_video, reset_all_videos, reset_specific_tasks, update_video_status, add_video_source, update_video_source_enabled, update_video_source_scan_deleted, reset_video_source_path, delete_video_source, reload_config, get_config, update_config, search_bilibili, get_user_favorites, get_user_collections, get_user_followings, get_subscribed_collections, get_submission_videos, get_logs, get_queue_status, proxy_image, get_config_item, get_config_history, validate_config, get_hot_reload_status, check_initial_setup, setup_auth_token, update_credential, generate_qr_code, poll_qr_status, get_current_user, clear_credential, pause_scanning_endpoint, resume_scanning_endpoint, get_task_control_status, get_video_play_info, proxy_video_stream, validate_favorite, get_user_favorites_by_uid, test_notification_handler, get_notification_config, update_notification_config, get_notification_status, test_risk_control_handler),
     modifiers(&OpenAPIAuth),
     security(
         ("Token" = []),
@@ -398,83 +398,12 @@ pub async fn get_video_sources(
         )
         .collect();
 
-    // 确保bangumi_sources是一个数组，即使为空
-    let bangumi_sources = video_source::Entity::find()
-        .filter(video_source::Column::Type.eq(1))
-        .select_only()
-        .columns([
-            video_source::Column::Id,
-            video_source::Column::Name,
-            video_source::Column::Enabled,
-            video_source::Column::Path,
-            video_source::Column::ScanDeletedVideos,
-            video_source::Column::DownloadDanmaku,
-            video_source::Column::SeasonId,
-            video_source::Column::MediaId,
-            video_source::Column::SelectedSeasons,
-        ])
-        .into_tuple::<(
-            i32,
-            String,
-            bool,
-            String,
-            bool,
-            bool,
-            Option<String>,
-            Option<String>,
-            Option<String>,
-        )>()
-        .all(db.as_ref())
-        .await?
-        .into_iter()
-        .map(
-            |(
-                id,
-                name,
-                enabled,
-                path,
-                scan_deleted_videos,
-                download_danmaku,
-                season_id,
-                media_id,
-                selected_seasons_json,
-            )| {
-                let selected_seasons = selected_seasons_json.as_ref().and_then(|json| {
-                    match serde_json::from_str::<Vec<String>>(json) {
-                        Ok(seasons) if !seasons.is_empty() => Some(seasons),
-                        Ok(_) => None,
-                        Err(err) => {                    warn!("Failed to parse selected_seasons for bangumi source {}: {}", id, err);
-                            None
-                        }
-                    }
-                });
-
-                VideoSource {
-                    id,
-                    name,
-                    enabled,
-                    path,
-                    scan_deleted_videos,
-                    download_danmaku,
-                    f_id: None,
-                    s_id: None,
-                    m_id: None,
-                    upper_id: None,
-                    season_id,
-                    media_id,
-                    selected_seasons,
-                }
-            },
-        )
-        .collect();
-
     // 返回响应，确保每个分类都是一个数组
     Ok(ApiResponse::ok(VideoSourcesResponse {
         collection: collection_sources,
         favorite: favorite_sources,
         submission: submission_sources,
         watch_later: watch_later_sources,
-        bangumi: bangumi_sources,
     }))
 }
 
@@ -501,20 +430,15 @@ pub async fn get_videos(
         query = query.filter(video::Column::Deleted.eq(0));
     }
 
-    // 直接检查是否存在bangumi参数，单独处理
-    if let Some(id) = params.bangumi {
-        query = query.filter(video::Column::SourceId.eq(id).and(video::Column::SourceType.eq(1)));
-    } else {
-        // 处理其他常规类型
-        for (field, column) in [
-            (params.collection, video::Column::CollectionId),
-            (params.favorite, video::Column::FavoriteId),
-            (params.submission, video::Column::SubmissionId),
-            (params.watch_later, video::Column::WatchLaterId),
-        ] {
-            if let Some(id) = field {
-                query = query.filter(column.eq(id));
-            }
+    // 处理视频源筛选
+    for (field, column) in [
+        (params.collection, video::Column::CollectionId),
+        (params.favorite, video::Column::FavoriteId),
+        (params.submission, video::Column::SubmissionId),
+        (params.watch_later, video::Column::WatchLaterId),
+    ] {
+        if let Some(id) = field {
+            query = query.filter(column.eq(id));
         }
     }
     if let Some(query_word) = params.query {
@@ -661,26 +585,6 @@ pub async fn get_videos(
                 )
                 .collect();
 
-            // 为番剧类型的视频填充真实标题
-            for (i, (_id, _name, _upper_name, _path, _category, _download_status, _cover, season_id, source_type)) in
-                raw_videos.iter().enumerate()
-            {
-                if *source_type == Some(1) && season_id.is_some() {
-                    // 番剧类型且有season_id，尝试获取真实标题
-                    if let Some(ref season_id_str) = season_id {
-                        // 先从缓存获取
-                        if let Some(title) = get_cached_season_title(season_id_str).await {
-                            videos[i].bangumi_title = Some(title);
-                        } else {
-                            // 缓存中没有，尝试从API获取并存入缓存
-                            if let Some(title) = fetch_and_cache_season_title(season_id_str).await {
-                                videos[i].bangumi_title = Some(title);
-                            }
-                        }
-                    }
-                }
-            }
-
             videos
         },
         total_count,
@@ -731,24 +635,8 @@ pub async fn get_video(
         return Err(InnerApiError::NotFound(id).into());
     };
 
-    // 创建VideoInfo并填充bangumi_title
-    let mut video_info = VideoInfo::from((_id, name, upper_name, path, category, download_status, cover));
-
-    // 为番剧类型的视频填充真实标题
-    if source_type == Some(1) && season_id.is_some() {
-        // 番剧类型且有season_id，尝试获取真实标题
-        if let Some(ref season_id_str) = season_id {
-            // 先从缓存获取
-            if let Some(title) = get_cached_season_title(season_id_str).await {
-                video_info.bangumi_title = Some(title);
-            } else {
-                // 缓存中没有，尝试从API获取并存入缓存
-                if let Some(title) = fetch_and_cache_season_title(season_id_str).await {
-                    video_info.bangumi_title = Some(title);
-                }
-            }
-        }
-    }
+    // 创建VideoInfo
+    let video_info = VideoInfo::from((_id, name, upper_name, path, category, download_status, cover));
     let pages = page::Entity::find()
         .filter(page::Column::VideoId.eq(id))
         .order_by_asc(page::Column::Pid)
@@ -947,20 +835,15 @@ pub async fn reset_all_videos(
         video_query = video_query.filter(video::Column::Deleted.eq(0));
     }
 
-    // 直接检查是否存在bangumi参数，单独处理
-    if let Some(id) = params.bangumi {
-        video_query = video_query.filter(video::Column::SourceId.eq(id).and(video::Column::SourceType.eq(1)));
-    } else {
-        // 处理其他常规类型
-        for (field, column) in [
-            (params.collection, video::Column::CollectionId),
-            (params.favorite, video::Column::FavoriteId),
-            (params.submission, video::Column::SubmissionId),
-            (params.watch_later, video::Column::WatchLaterId),
-        ] {
-            if let Some(id) = field {
-                video_query = video_query.filter(column.eq(id));
-            }
+    // 处理视频源筛选
+    for (field, column) in [
+        (params.collection, video::Column::CollectionId),
+        (params.favorite, video::Column::FavoriteId),
+        (params.submission, video::Column::SubmissionId),
+        (params.watch_later, video::Column::WatchLaterId),
+    ] {
+        if let Some(id) = field {
+            video_query = video_query.filter(column.eq(id));
         }
     }
 
@@ -989,21 +872,15 @@ pub async fn reset_all_videos(
                     page_query_filter = page_query_filter.add(video::Column::Deleted.eq(0));
                 }
 
-                // 直接检查是否存在bangumi参数，单独处理
-                if let Some(id) = params.bangumi {
-                    page_query_filter =
-                        page_query_filter.add(video::Column::SourceId.eq(id).and(video::Column::SourceType.eq(1)));
-                } else {
-                    // 处理其他常规类型
-                    for (field, column) in [
-                        (params.collection, video::Column::CollectionId),
-                        (params.favorite, video::Column::FavoriteId),
-                        (params.submission, video::Column::SubmissionId),
-                        (params.watch_later, video::Column::WatchLaterId),
-                    ] {
-                        if let Some(id) = field {
-                            page_query_filter = page_query_filter.add(column.eq(id));
-                        }
+                // 处理视频源筛选
+                for (field, column) in [
+                    (params.collection, video::Column::CollectionId),
+                    (params.favorite, video::Column::FavoriteId),
+                    (params.submission, video::Column::SubmissionId),
+                    (params.watch_later, video::Column::WatchLaterId),
+                ] {
+                    if let Some(id) = field {
+                        page_query_filter = page_query_filter.add(column.eq(id));
                     }
                 }
 
@@ -1170,20 +1047,15 @@ pub async fn reset_specific_tasks(
         video_query = video_query.filter(video::Column::Deleted.eq(0));
     }
 
-    // 直接检查是否存在bangumi参数，单独处理
-    if let Some(id) = request.bangumi {
-        video_query = video_query.filter(video::Column::SourceId.eq(id).and(video::Column::SourceType.eq(1)));
-    } else {
-        // 处理其他常规类型
-        for (field, column) in [
-            (request.collection, video::Column::CollectionId),
-            (request.favorite, video::Column::FavoriteId),
-            (request.submission, video::Column::SubmissionId),
-            (request.watch_later, video::Column::WatchLaterId),
-        ] {
-            if let Some(id) = field {
-                video_query = video_query.filter(column.eq(id));
-            }
+    // 处理视频源筛选
+    for (field, column) in [
+        (request.collection, video::Column::CollectionId),
+        (request.favorite, video::Column::FavoriteId),
+        (request.submission, video::Column::SubmissionId),
+        (request.watch_later, video::Column::WatchLaterId),
+    ] {
+        if let Some(id) = field {
+            video_query = video_query.filter(column.eq(id));
         }
     }
 
@@ -1570,59 +1442,6 @@ pub async fn update_video_status(
         success: has_video_updates || has_page_updates,
         video: video_info,
         pages: pages_info,
-    }))
-}
-
-/// 获取现有番剧源列表（用于合并选择）
-#[utoipa::path(
-    get,
-    path = "/api/video-sources/bangumi/list",
-    responses(
-        (status = 200, body = ApiResponse<BangumiSourceListResponse>),
-    )
-)]
-pub async fn get_bangumi_sources_for_merge(
-    Extension(db): Extension<Arc<DatabaseConnection>>,
-) -> Result<ApiResponse<BangumiSourceListResponse>, ApiError> {
-    // 获取所有番剧源
-    let bangumi_sources = video_source::Entity::find()
-        .filter(video_source::Column::Type.eq(1)) // 番剧类型
-        .filter(video_source::Column::Enabled.eq(true)) // 只返回启用的番剧
-        .order_by_desc(video_source::Column::CreatedAt)
-        .all(db.as_ref())
-        .await?;
-
-    let mut bangumi_options = Vec::new();
-
-    for source in bangumi_sources {
-        // 计算选中的季度数量
-        let selected_seasons_count = if source.download_all_seasons.unwrap_or(false) {
-            0 // 全部季度模式不计算具体数量
-        } else if let Some(ref seasons_json) = source.selected_seasons {
-            serde_json::from_str::<Vec<String>>(seasons_json)
-                .map(|seasons| seasons.len())
-                .unwrap_or(0)
-        } else {
-            0
-        };
-
-        bangumi_options.push(BangumiSourceOption {
-            id: source.id,
-            name: source.name,
-            path: source.path,
-            season_id: source.season_id,
-            media_id: source.media_id,
-            download_all_seasons: source.download_all_seasons.unwrap_or(false),
-            selected_seasons_count,
-        });
-    }
-
-    let total_count = bangumi_options.len();
-
-    Ok(ApiResponse::ok(BangumiSourceListResponse {
-        success: true,
-        bangumi_sources: bangumi_options,
-        total_count,
     }))
 }
 
@@ -6845,99 +6664,6 @@ async fn rename_existing_files(
     Ok(updated_count)
 }
 
-/// 获取番剧的所有季度信息
-#[utoipa::path(
-    get,
-    path = "/api/bangumi/seasons/{season_id}",
-    responses(
-        (status = 200, body = ApiResponse<Vec<BangumiSeasonInfo>>),
-    )
-)]
-pub async fn get_bangumi_seasons(
-    Path(season_id): Path<String>,
-) -> Result<ApiResponse<crate::api::response::BangumiSeasonsResponse>, ApiError> {
-    use crate::bilibili::bangumi::Bangumi;
-    use crate::bilibili::BiliClient;
-    use futures::future::join_all;
-
-    // 创建 BiliClient，使用空 cookie（对于获取季度信息不需要登录）
-    let bili_client = BiliClient::new(String::new());
-
-    // 创建 Bangumi 实例
-    let bangumi = Bangumi::new(&bili_client, None, Some(season_id.clone()), None);
-
-    // 获取所有季度信息
-    match bangumi.get_all_seasons().await {
-        Ok(seasons) => {
-            // 并发获取所有季度的详细信息
-            let season_details_futures: Vec<_> = seasons
-                .iter()
-                .map(|s| {
-                    let bili_client_clone = bili_client.clone();
-                    let season_clone = s.clone();
-                    async move {
-                        let season_bangumi = Bangumi::new(
-                            &bili_client_clone,
-                            season_clone.media_id.clone(),
-                            Some(season_clone.season_id.clone()),
-                            None,
-                        );
-
-                        let (full_title, episode_count, description) = match season_bangumi.get_season_info().await {
-                            Ok(season_info) => {
-                                let full_title = season_info["title"].as_str().map(|t| t.to_string());
-
-                                // 获取集数信息
-                                let episode_count =
-                                    season_info["episodes"].as_array().map(|episodes| episodes.len() as i32);
-
-                                // 获取简介信息
-                                let description = season_info["evaluate"].as_str().map(|d| d.to_string());
-
-                                (full_title, episode_count, description)
-                            }
-                            Err(e) => {
-                                warn!("获取季度 {} 的详细信息失败: {}", season_clone.season_id, e);
-                                (None, None, None)
-                            }
-                        };
-
-                        (season_clone, full_title, episode_count, description)
-                    }
-                })
-                .collect();
-
-            // 等待所有并发请求完成
-            let season_details = join_all(season_details_futures).await;
-
-            // 构建响应数据
-            let season_list: Vec<_> = season_details
-                .into_iter()
-                .map(
-                    |(s, full_title, episode_count, description)| crate::api::response::BangumiSeasonInfo {
-                        season_id: s.season_id,
-                        season_title: s.season_title,
-                        full_title,
-                        media_id: s.media_id,
-                        cover: Some(s.cover),
-                        episode_count,
-                        description,
-                    },
-                )
-                .collect();
-
-            Ok(ApiResponse::ok(crate::api::response::BangumiSeasonsResponse {
-                success: true,
-                data: season_list,
-            }))
-        }
-        Err(e) => {
-            error!("获取番剧季度信息失败: {}", e);
-            Err(anyhow!("获取番剧季度信息失败: {}", e).into())
-        }
-    }
-}
-
 /// 搜索bilibili内容
 #[utoipa::path(
     get,
@@ -10540,54 +10266,6 @@ async fn reset_nfo_tasks_for_config_change(db: Arc<DatabaseConnection>) -> Resul
     Ok((resetted_videos_count, resetted_pages_count))
 }
 
-/// 从全局缓存中获取番剧季标题
-/// 如果缓存中没有，返回None（避免在API响应中阻塞）
-async fn get_cached_season_title(season_id: &str) -> Option<String> {
-    // 引用workflow模块中的全局缓存
-    if let Ok(cache) = crate::workflow::SEASON_TITLE_CACHE.lock() {
-        cache.get(season_id).cloned()
-    } else {
-        None
-    }
-}
-
-/// 从API获取番剧标题并存入缓存
-/// 这是一个轻量级实现，用于在API响应时补充缺失的标题
-async fn fetch_and_cache_season_title(season_id: &str) -> Option<String> {
-    let url = format!("https://api.bilibili.com/pgc/view/web/season?season_id={}", season_id);
-
-    // 使用reqwest进行简单的HTTP请求
-    let client = reqwest::Client::new();
-
-    // 设置较短的超时时间，避免阻塞API响应
-    match tokio::time::timeout(std::time::Duration::from_secs(3), client.get(&url).send()).await {
-        Ok(Ok(response)) => {
-            if response.status().is_success() {
-                if let Ok(json) = response.json::<serde_json::Value>().await {
-                    if json["code"].as_i64().unwrap_or(-1) == 0 {
-                        if let Some(title) = json["result"]["title"].as_str() {
-                            let title = title.to_string();
-
-                            // 存入缓存
-                            if let Ok(mut cache) = crate::workflow::SEASON_TITLE_CACHE.lock() {
-                                cache.insert(season_id.to_string(), title.clone());
-                                debug!("缓存番剧标题: {} -> {}", season_id, title);
-                            }
-
-                            return Some(title);
-                        }
-                    }
-                }
-            }
-        }
-        _ => {
-            // 超时或请求失败，记录debug日志但不阻塞
-            debug!("获取番剧标题超时: season_id={}", season_id);
-        }
-    }
-
-    None
-}
 
 /// 获取仪表盘数据
 #[utoipa::path(

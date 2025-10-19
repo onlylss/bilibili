@@ -14,8 +14,6 @@ pub struct VideoSourcesResponse {
     pub submission: Vec<VideoSource>,
     #[serde(default)]
     pub watch_later: Vec<VideoSource>,
-    #[serde(default)]
-    pub bangumi: Vec<VideoSource>,
 }
 
 #[derive(Serialize, ToSchema)]
@@ -142,26 +140,6 @@ pub struct ResetVideoSourcePathResponse {
     pub message: String,
 }
 
-/// 番剧源简化信息（用于合并选择）
-#[derive(Serialize, ToSchema, Debug)]
-pub struct BangumiSourceOption {
-    pub id: i32,
-    pub name: String,
-    pub path: String,
-    pub season_id: Option<String>,
-    pub media_id: Option<String>,
-    pub download_all_seasons: bool,
-    pub selected_seasons_count: usize,
-}
-
-/// 番剧源列表响应
-#[derive(Serialize, ToSchema)]
-pub struct BangumiSourceListResponse {
-    pub success: bool,
-    pub bangumi_sources: Vec<BangumiSourceOption>,
-    pub total_count: usize,
-}
-
 #[derive(Serialize, ToSchema, Debug)]
 pub struct VideoSource {
     pub id: i32,
@@ -172,13 +150,9 @@ pub struct VideoSource {
     pub download_danmaku: bool,
     // 类型特有的ID字段
     pub f_id: Option<i64>,         // 收藏夹ID
-    pub s_id: Option<i64>,         // 合集ID
-    pub m_id: Option<i64>,         // UP主ID (用于合集)
-    pub upper_id: Option<i64>,     // UP主ID (用于投稿)
-    pub season_id: Option<String>, // 番剧season_id
-    pub media_id: Option<String>,  // 番剧media_id
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub selected_seasons: Option<Vec<String>>,
+    pub s_id: Option<i64>,     // 合集ID
+    pub m_id: Option<i64>,     // UP主ID (用于合集)
+    pub upper_id: Option<i64>, // UP主ID (用于投稿)
 }
 
 #[derive(Serialize, ToSchema)]
@@ -223,8 +197,6 @@ pub struct VideoInfo {
     pub category: i32,
     pub download_status: [u32; 5],
     pub cover: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub bangumi_title: Option<String>, // 番剧真实标题，用于番剧类型视频的显示
 }
 
 impl From<(i32, String, String, String, i32, u32, String)> for VideoInfo {
@@ -239,7 +211,6 @@ impl From<(i32, String, String, String, i32, u32, String)> for VideoInfo {
             category,
             download_status: VideoStatus::from(download_status).into(),
             cover,
-            bangumi_title: None, // 默认为None，将在API层根据视频类型填充
         }
     }
 }
@@ -250,9 +221,7 @@ pub struct ConfigResponse {
     pub video_name: String,
     pub page_name: String,
     pub multi_page_name: String,
-    pub bangumi_name: String,
     pub folder_structure: String,
-    pub bangumi_folder_name: String,
     pub collection_folder_mode: String,
     pub time_format: String,
     pub interval: u64,
@@ -316,8 +285,6 @@ pub struct ConfigResponse {
     pub multi_page_use_season_structure: bool,
     // 合集目录结构配置
     pub collection_use_season_structure: bool,
-    // 番剧目录结构配置
-    pub bangumi_use_season_structure: bool,
     // UP主头像保存路径
     pub upper_path: String,
     // B站凭证信息
@@ -403,33 +370,14 @@ pub struct HotReloadStatusResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
-pub struct BangumiSeasonInfo {
-    pub season_id: String,
-    pub season_title: String,
-    pub full_title: Option<String>, // 完整的番剧标题
-    pub media_id: Option<String>,
-    pub cover: Option<String>,
-    pub episode_count: Option<i32>,  // 集数
-    pub description: Option<String>, // 简介
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
-pub struct BangumiSeasonsResponse {
-    pub success: bool,
-    pub data: Vec<BangumiSeasonInfo>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct SearchResult {
-    pub result_type: String,       // video, bili_user, media_bangumi等
-    pub title: String,             // 标题
-    pub author: String,            // 作者/UP主
-    pub bvid: Option<String>,      // 视频BV号
-    pub aid: Option<i64>,          // 视频AV号
-    pub mid: Option<i64>,          // UP主ID
-    pub season_id: Option<String>, // 番剧season_id
-    pub media_id: Option<String>,  // 番剧media_id
-    pub cover: String,             // 封面图
+    pub result_type: String,  // video, bili_user等
+    pub title: String,        // 标题
+    pub author: String,       // 作者/UP主
+    pub bvid: Option<String>, // 视频BV号
+    pub aid: Option<i64>,     // 视频AV号
+    pub mid: Option<i64>,     // UP主ID
+    pub cover: String,        // 封面图
     pub description: String,       // 描述
     pub duration: Option<String>,  // 视频时长
     pub pubdate: Option<i64>,      // 发布时间
@@ -659,12 +607,10 @@ pub struct DashBoardResponse {
     pub enabled_favorites: u64,
     pub enabled_collections: u64,
     pub enabled_submissions: u64,
-    pub enabled_bangumi: u64,
     pub enable_watch_later: bool,
     pub total_favorites: u64,
     pub total_collections: u64,
     pub total_submissions: u64,
-    pub total_bangumi: u64,
     pub total_watch_later: u64,
     pub videos_by_day: Vec<DayCountPair>,
     /// 当前监听状态

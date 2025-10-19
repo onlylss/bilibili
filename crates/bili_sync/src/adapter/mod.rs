@@ -1,16 +1,7 @@
-pub mod bangumi;
 mod collection;
 mod favorite;
 mod submission;
 mod watch_later;
-
-// 移除不再使用的init函数导出，因为现在视频源通过Web API管理
-// pub use collection::init_collection_sources;
-// pub use favorite::init_favorite_sources;
-// pub use submission::init_submission_sources;
-// pub use watch_later::init_watch_later_source;
-
-pub use bangumi::BangumiSource;
 
 use std::path::Path;
 use std::pin::Pin;
@@ -41,7 +32,6 @@ pub enum VideoSourceEnum {
     Collection,
     Submission,
     WatchLater,
-    BangumiSource,
 }
 
 #[enum_dispatch(VideoSourceEnum)]
@@ -125,11 +115,6 @@ pub enum Args {
     Submission {
         upper_id: String,
     },
-    Bangumi {
-        season_id: Option<String>,
-        media_id: Option<String>,
-        ep_id: Option<String>,
-    },
 }
 
 pub async fn video_source_from<'a>(
@@ -149,11 +134,6 @@ pub async fn video_source_from<'a>(
         Args::Submission { upper_id } => {
             submission_from(upper_id, path, bili_client, connection, cancellation_token).await
         }
-        Args::Bangumi {
-            season_id,
-            media_id,
-            ep_id,
-        } => bangumi_from(season_id, media_id, ep_id, path, bili_client, connection).await,
     }
 }
 
@@ -162,7 +142,6 @@ pub enum _ActiveModel {
     Collection(bili_sync_entity::collection::ActiveModel),
     Submission(bili_sync_entity::submission::ActiveModel),
     WatchLater(bili_sync_entity::watch_later::ActiveModel),
-    Bangumi(Box<bili_sync_entity::video_source::ActiveModel>),
 }
 
 impl _ActiveModel {
@@ -180,104 +159,7 @@ impl _ActiveModel {
             _ActiveModel::WatchLater(model) => {
                 model.save(connection).await?;
             }
-            _ActiveModel::Bangumi(model) => {
-                model.save(connection).await?;
-            }
         }
         Ok(())
     }
-}
-
-pub async fn bangumi_from<'a>(
-    season_id: &Option<String>,
-    media_id: &Option<String>,
-    ep_id: &Option<String>,
-    path: &'a Path,
-    bili_client: &'a BiliClient,
-    connection: &DatabaseConnection,
-) -> Result<(
-    VideoSourceEnum,
-    Pin<Box<dyn Stream<Item = Result<VideoInfo>> + 'a + Send>>,
-)> {
-    // 使用可用的ID构建查询条件
-    let mut query =
-        bili_sync_entity::video_source::Entity::find().filter(bili_sync_entity::video_source::Column::Type.eq(1));
-
-    // 根据提供的标识符构建查询
-    if let Some(season_id_value) = season_id {
-        query = query.filter(bili_sync_entity::video_source::Column::SeasonId.eq(season_id_value));
-    }
-
-    if let Some(media_id_value) = media_id {
-        query = query.filter(bili_sync_entity::video_source::Column::MediaId.eq(media_id_value));
-    }
-
-    if let Some(ep_id_value) = ep_id {
-        query = query.filter(bili_sync_entity::video_source::Column::EpId.eq(ep_id_value));
-    }
-
-    // 从数据库中获取现有的番剧源
-    let bangumi_model = query.one(connection).await?;
-
-    // 如果数据库中存在，则使用数据库中的ID；否则使用默认ID
-    let bangumi_source = if let Some(model) = bangumi_model {
-        // 解析 selected_seasons JSON 字符串
-        let selected_seasons = if let Some(json_str) = &model.selected_seasons {
-            serde_json::from_str::<Vec<String>>(json_str).ok()
-        } else {
-            None
-        };
-
-        BangumiSource {
-            id: model.id,
-            name: model.name,
-            latest_row_at: model.latest_row_at,
-            season_id: model.season_id,
-            media_id: model.media_id,
-            ep_id: model.ep_id,
-            path: path.to_path_buf(),
-            download_all_seasons: model.download_all_seasons.unwrap_or(false),
-            page_name_template: model.page_name_template,
-            selected_seasons,
-            scan_deleted_videos: model.scan_deleted_videos,
-            download_danmaku: model.download_danmaku,
-        }
-    } else {
-        // 如果数据库中不存在，使用默认值并发出警告
-        let id_desc = match (season_id, media_id, ep_id) {
-            (Some(s), _, _) => format!("season_id: {}", s),
-            (_, Some(m), _) => format!("media_id: {}", m),
-            (_, _, Some(e)) => format!("ep_id: {}", e),
-            _ => "未提供ID".to_string(),
-        };
-
-        warn!("数据库中未找到番剧 {} 的记录，使用临时ID", id_desc);
-        BangumiSource {
-            id: 0, // 临时的 ID
-            name: format!("番剧 {}", id_desc),
-            latest_row_at: "1970-01-01 00:00:00".to_string(),
-            season_id: season_id.clone(),
-            media_id: media_id.clone(),
-            ep_id: ep_id.clone(),
-            path: path.to_path_buf(),
-            download_all_seasons: false,
-            page_name_template: None,
-            selected_seasons: None,
-            scan_deleted_videos: false,
-            download_danmaku: false,
-        }
-    };
-
-    // 获取番剧的视频流
-    let video_stream = bangumi_source.video_stream_from(bili_client, path, connection).await?;
-
-    // 将 'static 生命周期的流转换为 'a 生命周期
-    let video_stream = unsafe {
-        std::mem::transmute::<
-            Pin<Box<dyn Stream<Item = Result<VideoInfo>> + Send>>,
-            Pin<Box<dyn Stream<Item = Result<VideoInfo>> + 'a + Send>>,
-        >(video_stream)
-    };
-
-    Ok((VideoSourceEnum::BangumiSource(bangumi_source), video_stream))
 }

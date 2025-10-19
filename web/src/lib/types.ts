@@ -38,9 +38,6 @@ export interface VideoSource {
 	s_id?: number; // 合集ID
 	m_id?: number; // UP主ID (用于合集)
 	upper_id?: number; // UP主ID (用于投稿)
-	season_id?: string; // 番剧season_id
-	media_id?: string; // 番剧media_id
-	selected_seasons?: string[];
 }
 
 // 视频来源响应类型
@@ -49,7 +46,6 @@ export interface VideoSourcesResponse {
 	favorite: VideoSource[];
 	submission: VideoSource[];
 	watch_later: VideoSource[];
-	bangumi: VideoSource[];
 }
 
 // 视频信息类型
@@ -61,7 +57,6 @@ export interface VideoInfo {
 	category: number;
 	download_status: [number, number, number, number, number];
 	cover: string;
-	bangumi_title?: string; // 番剧真实标题，用于番剧类型视频的显示
 }
 
 // 视频列表响应类型
@@ -160,10 +155,6 @@ export interface AddVideoSourceRequest {
 	name: string;
 	path: string;
 	collection_type?: string;
-	media_id?: string;
-	ep_id?: string;
-	download_all_seasons?: boolean;
-	selected_seasons?: string[];
 	selected_videos?: string[];
 	merge_to_source_id?: number;
 }
@@ -193,9 +184,7 @@ export interface ConfigResponse {
 	video_name: string;
 	page_name: string;
 	multi_page_name?: string;
-	bangumi_name?: string;
 	folder_structure: string;
-	bangumi_folder_name?: string;
 	collection_folder_mode?: string;
 	time_format: string;
 	interval: number;
@@ -256,8 +245,6 @@ export interface ConfigResponse {
 	multi_page_use_season_structure?: boolean;
 	// 合集目录结构配置
 	collection_use_season_structure?: boolean;
-	// 番剧目录结构配置
-	bangumi_use_season_structure?: boolean;
 	// B站凭证信息
 	credential?: {
 		sessdata: string;
@@ -283,9 +270,7 @@ export interface UpdateConfigRequest {
 	video_name?: string;
 	page_name?: string;
 	multi_page_name?: string;
-	bangumi_name?: string;
 	folder_structure?: string;
-	bangumi_folder_name?: string;
 	collection_folder_mode?: string;
 	time_format?: string;
 	interval?: number;
@@ -346,8 +331,6 @@ export interface UpdateConfigRequest {
 	multi_page_use_season_structure?: boolean;
 	// 合集目录结构配置
 	collection_use_season_structure?: boolean;
-	// 番剧目录结构配置
-	bangumi_use_season_structure?: boolean;
 	// UP主头像保存路径
 	upper_path?: string;
 	// 风控验证配置
@@ -375,7 +358,7 @@ export interface UpdateConfigResponse {
 // 搜索请求类型
 export interface SearchRequest {
 	keyword: string;
-	search_type: 'video' | 'bili_user' | 'media_bangumi';
+	search_type: 'video' | 'bili_user';
 	page?: number;
 	page_size?: number;
 }
@@ -388,8 +371,6 @@ export interface SearchResultItem {
 	bvid?: string;
 	aid?: number;
 	mid?: number;
-	season_id?: string;
-	media_id?: string;
 	cover: string;
 	description: string;
 	duration?: string;
@@ -447,42 +428,7 @@ export interface UserCollectionsResponse {
 }
 
 // 视频分类类型
-export type VideoCategory = 'collection' | 'favorite' | 'submission' | 'watch_later' | 'bangumi';
-
-// 番剧季度信息类型
-export interface BangumiSeasonInfo {
-	season_id: string;
-	season_title: string;
-	full_title?: string;
-	media_id?: string;
-	cover?: string;
-	episode_count?: number; // 集数
-	description?: string; // 简介
-}
-
-// 番剧季度响应类型
-export interface BangumiSeasonsResponse {
-	success: boolean;
-	data: BangumiSeasonInfo[];
-}
-
-// 番剧源选项（用于合并选择）
-export interface BangumiSourceOption {
-	id: number;
-	name: string;
-	path: string;
-	season_id: string | null;
-	media_id: string | null;
-	download_all_seasons: boolean;
-	selected_seasons_count: number;
-}
-
-// 番剧源列表响应
-export interface BangumiSourceListResponse {
-	success: boolean;
-	bangumi_sources: BangumiSourceOption[];
-	total_count: number;
-}
+export type VideoCategory = 'collection' | 'favorite' | 'submission' | 'watch_later';
 
 // 关注的UP主信息类型
 export interface UserFollowing {
@@ -750,12 +696,10 @@ export interface DashBoardResponse {
 	enabled_favorites: number;
 	enabled_collections: number;
 	enabled_submissions: number;
-	enabled_bangumi: number;
 	enable_watch_later: boolean;
 	total_favorites: number;
 	total_collections: number;
 	total_submissions: number;
-	total_bangumi: number;
 	total_watch_later: number;
 	videos_by_day: DayCountPair[];
 	monitoring_status: MonitoringStatus;

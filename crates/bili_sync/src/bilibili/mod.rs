@@ -20,7 +20,6 @@ pub use submission::Submission;
 pub use verification_coordinator::{VerificationRequest, VERIFICATION_COORDINATOR};
 pub use video::{bvid_to_aid, Dimension, PageInfo, Video};
 pub use watch_later::WatchLater;
-pub mod bangumi;
 
 mod analyzer;
 mod captcha_server;
@@ -172,31 +171,5 @@ pub enum VideoInfo {
         cover: String,
         #[serde(rename = "created", with = "ts_seconds")]
         ctime: DateTime<Utc>,
-    },
-    // 从番剧接口获取的视频信息
-    Bangumi {
-        title: String,
-        season_id: String,
-        ep_id: String,
-        bvid: String,
-        #[allow(dead_code)]
-        cid: String,
-        #[allow(dead_code)]
-        aid: String,
-        cover: String,
-        intro: String,
-        #[serde(with = "ts_seconds")]
-        pubtime: DateTime<Utc>,
-        show_title: Option<String>,
-        /// 季度编号，从seasons数组中的位置计算得出
-        season_number: Option<i32>,
-        /// 集数，直接从API的title字段获取
-        episode_number: Option<i32>,
-        /// 详细的分享标题，用于NFO智能title选择
-        share_copy: Option<String>,
-        /// 番剧季度类型，用于区分常规番剧(1)和番剧影视(2)
-        show_season_type: Option<i32>,
-        /// 演员信息字符串，从API获取
-        actors: Option<String>,
     },
 }

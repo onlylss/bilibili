@@ -8,7 +8,6 @@ pub struct VideosRequest {
     pub favorite: Option<i32>,
     pub submission: Option<i32>,
     pub watch_later: Option<i32>,
-    pub bangumi: Option<i32>,
     pub query: Option<String>,
     pub page: Option<u64>,
     pub page_size: Option<u64>,
@@ -28,7 +27,7 @@ pub struct SubmissionVideosRequest {
 // 添加新视频源的请求结构体
 #[derive(Deserialize, IntoParams, ToSchema)]
 pub struct AddVideoSourceRequest {
-    // 视频源类型: "collection", "favorite", "submission", "watch_later", "bangumi"
+    // 视频源类型: "collection", "favorite", "submission", "watch_later"
     pub source_type: String,
     // 视频源ID: 收藏夹ID、合集ID、UP主ID等
     pub source_id: String,
@@ -40,19 +39,10 @@ pub struct AddVideoSourceRequest {
     pub path: String,
     // 合集类型: "season"(视频合集) 或 "series"(视频列表)，仅当source_type为"collection"时有效
     pub collection_type: Option<String>,
-    // 番剧特有字段
-    pub media_id: Option<String>,
-    pub ep_id: Option<String>,
-    // 是否下载全部季度，仅当source_type为"bangumi"时有效
-    pub download_all_seasons: Option<bool>,
-    // 选中的季度ID列表，仅当source_type为"bangumi"且download_all_seasons为false时有效
-    pub selected_seasons: Option<Vec<String>>,
     // 选中的视频ID列表，仅当source_type为"submission"时有效，用于选择性下载历史投稿
     pub selected_videos: Option<Vec<String>>,
     // 封面URL，仅当source_type为"collection"时有效
     pub cover: Option<String>,
-    // 合并到现有番剧源的ID，仅当source_type为"bangumi"时有效
-    pub merge_to_source_id: Option<i32>,
 }
 
 // 删除视频源的请求结构体
@@ -109,12 +99,8 @@ pub struct UpdateConfigRequest {
     pub page_name: Option<String>,
     // 多P视频分页命名模板
     pub multi_page_name: Option<String>,
-    // 番剧分页命名模板
-    pub bangumi_name: Option<String>,
     // 文件夹结构模板
     pub folder_structure: Option<String>,
-    // 番剧文件夹命名模板
-    pub bangumi_folder_name: Option<String>,
     // 合集文件夹模式
     pub collection_folder_mode: Option<String>,
     // 时间格式
@@ -182,8 +168,6 @@ pub struct UpdateConfigRequest {
     pub multi_page_use_season_structure: Option<bool>,
     // 合集目录结构配置
     pub collection_use_season_structure: Option<bool>,
-    // 番剧目录结构配置
-    pub bangumi_use_season_structure: Option<bool>,
     // UP主头像保存路径
     pub upper_path: Option<String>,
     // 风控验证配置
@@ -264,7 +248,6 @@ pub struct ResetSpecificTasksRequest {
     pub favorite: Option<i32>,
     pub submission: Option<i32>,
     pub watch_later: Option<i32>,
-    pub bangumi: Option<i32>,
 }
 
 // 配置管理相关请求结构体

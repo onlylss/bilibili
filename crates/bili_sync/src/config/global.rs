@@ -121,9 +121,7 @@ fn check_template_changes(new_bundle: &ConfigBundle) -> bool {
     let video_name_changed = current_bundle.config.video_name != new_bundle.config.video_name;
     let page_name_changed = current_bundle.config.page_name != new_bundle.config.page_name;
     let multi_page_name_changed = current_bundle.config.multi_page_name != new_bundle.config.multi_page_name;
-    let bangumi_name_changed = current_bundle.config.bangumi_name != new_bundle.config.bangumi_name;
     let folder_structure_changed = current_bundle.config.folder_structure != new_bundle.config.folder_structure;
-    let bangumi_folder_changed = current_bundle.config.bangumi_folder_name != new_bundle.config.bangumi_folder_name;
 
     if video_name_changed {
         warn!(
@@ -143,31 +141,17 @@ fn check_template_changes(new_bundle: &ConfigBundle) -> bool {
             current_bundle.config.multi_page_name, new_bundle.config.multi_page_name
         );
     }
-    if bangumi_name_changed {
-        debug!(
-            "番剧文件名模板已变更: '{}' -> '{}'",
-            current_bundle.config.bangumi_name, new_bundle.config.bangumi_name
-        );
-    }
     if folder_structure_changed {
         debug!(
             "文件夹结构模板已变更: '{}' -> '{}'",
             current_bundle.config.folder_structure, new_bundle.config.folder_structure
         );
     }
-    if bangumi_folder_changed {
-        debug!(
-            "番剧文件夹模板已变更: '{}' -> '{}'",
-            current_bundle.config.bangumi_folder_name, new_bundle.config.bangumi_folder_name
-        );
-    }
 
     video_name_changed
         || page_name_changed
         || multi_page_name_changed
-        || bangumi_name_changed
         || folder_structure_changed
-        || bangumi_folder_changed
 }
 
 /// 访问配置包的便捷函数
@@ -226,7 +210,6 @@ pub static TEMPLATE: Lazy<handlebars::Handlebars<'static>> = Lazy::new(|| {
     let video_name = Box::leak(config.video_name.to_string().into_boxed_str());
     let page_name = Box::leak(config.page_name.to_string().into_boxed_str());
     let multi_page_name = Box::leak(config.multi_page_name.to_string().into_boxed_str());
-    let bangumi_name = Box::leak(config.bangumi_name.to_string().into_boxed_str());
 
     handlebars
         .path_safe_register("video", video_name)
@@ -237,9 +220,6 @@ pub static TEMPLATE: Lazy<handlebars::Handlebars<'static>> = Lazy::new(|| {
     handlebars
         .path_safe_register("multi_page", multi_page_name)
         .expect("注册multi_page模板失败");
-    handlebars
-        .path_safe_register("bangumi", bangumi_name)
-        .expect("注册bangumi模板失败");
 
     handlebars
 });

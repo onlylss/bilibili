@@ -217,7 +217,6 @@ class ApiClient {
 			collection?: number;
 			favorite?: number;
 			submission?: number;
-			bangumi?: number;
 			watch_later?: number;
 		},
 		force: boolean = false
@@ -258,7 +257,6 @@ class ApiClient {
 			collection?: number;
 			favorite?: number;
 			submission?: number;
-			bangumi?: number;
 			watch_later?: number;
 		},
 		force: boolean = false
@@ -426,22 +424,6 @@ class ApiClient {
 			page,
 			page_size: pageSize
 		});
-	}
-
-	/**
-	 * 获取番剧季度信息
-	 */
-	async getBangumiSeasons(seasonId: string): Promise<ApiResponse<BangumiSeasonsResponse>> {
-		return this.get<BangumiSeasonsResponse>(`/bangumi/seasons/${seasonId}`);
-	}
-
-	/**
-	 * 获取现有番剧源列表（用于合并选择）
-	 */
-	async getBangumiSourcesForMerge(): Promise<
-		ApiResponse<import('./types').BangumiSourceListResponse>
-	> {
-		return this.get<import('./types').BangumiSourceListResponse>('/video-sources/bangumi/list');
 	}
 
 	/**
@@ -690,7 +672,6 @@ export const api = {
 			collection?: number;
 			favorite?: number;
 			submission?: number;
-			bangumi?: number;
 			watch_later?: number;
 		},
 		force?: boolean
@@ -710,7 +691,6 @@ export const api = {
 			collection?: number;
 			favorite?: number;
 			submission?: number;
-			bangumi?: number;
 			watch_later?: number;
 		},
 		force?: boolean
@@ -767,16 +747,6 @@ export const api = {
 	 */
 	getUserCollections: (mid: string, page?: number, pageSize?: number) =>
 		apiClient.getUserCollections(mid, page, pageSize),
-
-	/**
-	 * 获取番剧季度信息
-	 */
-	getBangumiSeasons: (seasonId: string) => apiClient.getBangumiSeasons(seasonId),
-
-	/**
-	 * 获取现有番剧源列表（用于合并选择）
-	 */
-	getBangumiSourcesForMerge: () => apiClient.getBangumiSourcesForMerge(),
 
 	/**
 	 * 获取关注的UP主列表

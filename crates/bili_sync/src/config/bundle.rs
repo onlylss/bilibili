@@ -61,9 +61,7 @@ impl ConfigBundle {
         let video_name = Box::leak(config.video_name.to_string().into_boxed_str());
         let page_name = Box::leak(config.page_name.to_string().into_boxed_str());
         let multi_page_name = Box::leak(config.multi_page_name.to_string().into_boxed_str());
-        let bangumi_name = Box::leak(config.bangumi_name.to_string().into_boxed_str());
         let folder_structure = Box::leak(config.folder_structure.to_string().into_boxed_str());
-        let bangumi_folder_name = Box::leak(config.bangumi_folder_name.to_string().into_boxed_str());
 
         // 区分Unix风格和Windows风格的路径分隔符
         let safe_video_name = video_name.replace('/', "__UNIX_SEP__").replace('\\', "__WIN_SEP__");
@@ -71,11 +69,7 @@ impl ConfigBundle {
         let safe_multi_page_name = multi_page_name
             .replace('/', "__UNIX_SEP__")
             .replace('\\', "__WIN_SEP__");
-        let safe_bangumi_name = bangumi_name.replace('/', "__UNIX_SEP__").replace('\\', "__WIN_SEP__");
         let safe_folder_structure = folder_structure
-            .replace('/', "__UNIX_SEP__")
-            .replace('\\', "__WIN_SEP__");
-        let safe_bangumi_folder_name = bangumi_folder_name
             .replace('/', "__UNIX_SEP__")
             .replace('\\', "__WIN_SEP__");
 
@@ -92,22 +86,13 @@ impl ConfigBundle {
             multi_page_name, safe_multi_page_name
         );
 
-        handlebars.register_template_string("bangumi", &safe_bangumi_name)?;
-        debug!("模板 'bangumi' 已注册: '{}' -> '{}'", bangumi_name, safe_bangumi_name);
-
         handlebars.register_template_string("folder_structure", &safe_folder_structure)?;
         debug!(
             "模板 'folder_structure' 已注册: '{}' -> '{}'",
             folder_structure, safe_folder_structure
         );
 
-        handlebars.register_template_string("bangumi_folder", &safe_bangumi_folder_name)?;
-        debug!(
-            "模板 'bangumi_folder' 已注册: '{}' -> '{}'",
-            bangumi_folder_name, safe_bangumi_folder_name
-        );
-
-        debug!("Handlebars模板引擎构建完成，共注册 {} 个模板", 6);
+        debug!("Handlebars模板引擎构建完成，共注册 {} 个模板", 4);
         Ok(handlebars)
     }
 

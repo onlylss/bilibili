@@ -123,16 +123,8 @@ fn default_multi_page_name() -> Cow<'static, str> {
     Cow::Borrowed("P{{pid_pad}}.{{ptitle}}")
 }
 
-fn default_bangumi_name() -> Cow<'static, str> {
-    Cow::Borrowed("S{{season_pad}}E{{pid_pad}}")
-}
-
 fn default_folder_structure() -> Cow<'static, str> {
     Cow::Borrowed("Season {{season_pad}}")
-}
-
-fn default_bangumi_folder_name() -> Cow<'static, str> {
-    Cow::Borrowed("{{series_title}}")
 }
 
 fn default_collection_folder_mode() -> Cow<'static, str> {
@@ -157,12 +149,8 @@ pub struct Config {
     pub page_name: Cow<'static, str>,
     #[serde(default = "default_multi_page_name")]
     pub multi_page_name: Cow<'static, str>,
-    #[serde(default = "default_bangumi_name")]
-    pub bangumi_name: Cow<'static, str>,
     #[serde(default = "default_folder_structure")]
     pub folder_structure: Cow<'static, str>,
-    #[serde(default = "default_bangumi_folder_name")]
-    pub bangumi_folder_name: Cow<'static, str>,
     #[serde(default = "default_collection_folder_mode")]
     pub collection_folder_mode: Cow<'static, str>,
     #[serde(default = "default_interval")]
@@ -183,9 +171,6 @@ pub struct Config {
     pub submission_risk_control: crate::config::item::SubmissionRiskControlConfig,
     #[serde(default)]
     pub scan_deleted_videos: bool,
-    // 番剧预告片过滤配置
-    #[serde(default = "default_skip_bangumi_preview")]
-    pub skip_bangumi_preview: bool,
     // aria2监控相关配置
     #[serde(default)]
     pub enable_aria2_health_check: bool,
@@ -202,9 +187,6 @@ pub struct Config {
     // 合集是否使用Season文件夹结构
     #[serde(default = "default_collection_use_season_structure")]
     pub collection_use_season_structure: bool,
-    // 番剧是否使用Season文件夹结构（同时启用系列名标准化）
-    #[serde(default = "default_bangumi_use_season_structure")]
-    pub bangumi_use_season_structure: bool,
     // 推送通知配置
     #[serde(default)]
     pub notification: NotificationConfig,
@@ -219,10 +201,6 @@ pub struct Config {
     pub risk_control: RiskControlConfig,
 }
 
-fn default_skip_bangumi_preview() -> bool {
-    true // 默认跳过预告片
-}
-
 fn default_aria2_health_check_interval() -> u64 {
     300 // 默认5分钟
 }
@@ -233,10 +211,6 @@ fn default_multi_page_use_season_structure() -> bool {
 
 fn default_collection_use_season_structure() -> bool {
     true // 默认使用Season结构
-}
-
-fn default_bangumi_use_season_structure() -> bool {
-    true // 默认使用Season结构（同时启用系列名标准化）
 }
 
 fn default_cdn_sorting() -> bool {

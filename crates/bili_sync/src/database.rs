@@ -122,11 +122,6 @@ pub async fn setup_database() -> DatabaseConnection {
     migrate_database().await.expect("数据库迁移失败");
     let connection = database_connection().await.expect("获取数据库连接失败");
 
-    // 执行番剧缓存相关的数据库迁移
-    if let Err(e) = crate::utils::bangumi_cache::ensure_cache_columns(&connection).await {
-        tracing::warn!("番剧缓存数据库迁移失败: {}", e);
-    }
-
     // 预热数据库，加载热数据到内存映射
     if let Err(e) = preheat_database(&connection).await {
         tracing::warn!("数据库预热失败: {}", e);
