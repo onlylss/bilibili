@@ -8,7 +8,12 @@
 	import api from '$lib/api';
 	import type { ApiError } from '$lib/types';
 	import { VIDEO_SOURCES } from '$lib/consts';
-	import { videoSourceStore, setVideoSources } from '$lib/stores/video-source';
+	import {
+		videoSourceStore,
+		setVideoSources,
+		updateVideoSource,
+		removeVideoSource
+	} from '$lib/stores/video-source';
 	import DeleteVideoSourceDialog from '$lib/components/delete-video-source-dialog.svelte';
 	import ResetPathDialog from '$lib/components/reset-path-dialog.svelte';
 
@@ -78,7 +83,8 @@
 			const result = await api.updateVideoSourceEnabled(sourceType, sourceId, !currentEnabled);
 			if (result.data.success) {
 				toast.success(result.data.message);
-				await loadVideoSources();
+				// 直接更新store中的数据,不重新加载整个列表
+				updateVideoSource(sourceType, sourceId, { enabled: !currentEnabled });
 			} else {
 				toast.error('操作失败', { description: result.data.message });
 			}
@@ -128,7 +134,8 @@
 				toast.success('设置更新成功', {
 					description: result.data.message
 				});
-				await loadVideoSources();
+				// 直接更新store中的数据
+				updateVideoSource(sourceType, sourceId, { scan_deleted_videos: newScanDeleted });
 			} else {
 				toast.error('设置更新失败', { description: result.data.message });
 			}
@@ -156,7 +163,8 @@
 				toast.success('弹幕设置更新成功', {
 					description: result.data.message
 				});
-				await loadVideoSources();
+				// 直接更新store中的数据
+				updateVideoSource(sourceType, sourceId, { download_danmaku: newDownloadDanmaku });
 			} else {
 				toast.error('弹幕设置更新失败', { description: result.data.message });
 			}
@@ -181,7 +189,8 @@
 					description:
 						result.data.message + (deleteLocalFiles ? '，本地文件已删除' : '，本地文件已保留')
 				});
-				await loadVideoSources();
+				// 直接从store中移除该视频源
+				removeVideoSource(deleteSourceInfo.type, deleteSourceInfo.id);
 			} else {
 				toast.error('删除失败', { description: result.data.message });
 			}
@@ -218,7 +227,10 @@
 						result.data.message +
 						(request.apply_rename_rules ? `，已移动 ${result.data.moved_files_count} 个文件` : '')
 				});
-				await loadVideoSources();
+				// 直接更新store中的路径
+				updateVideoSource(resetPathSourceInfo.type, resetPathSourceInfo.id, {
+					path: request.new_path
+				});
 			} else {
 				toast.error('路径重设失败', { description: result.data.message });
 			}

@@ -1410,6 +1410,30 @@
 		}
 	}
 
+	// 加载所有剩余视频
+	async function loadAllRemainingVideos() {
+		if (!hasMoreVideos || isLoadingMore) return;
+
+		isLoadingMore = true;
+		showLoadMoreButton = false;
+		try {
+			// 计算剩余需要加载的视频数量
+			const remaining = submissionTotalCount - submissionVideos.length;
+			if (remaining > 0) {
+				toast.info(`开始加载剩余 ${remaining} 个视频...`);
+				await loadVideosInBatch(remaining);
+				toast.success('所有视频加载完成');
+			}
+		} catch (err) {
+			console.error('加载所有视频失败:', err);
+			toast.error('加载所有视频失败', {
+				description: err instanceof Error ? err.message : '网络请求失败'
+			});
+		} finally {
+			isLoadingMore = false;
+		}
+	}
+
 	// 处理滚动事件，检测是否需要显示加载更多按钮
 	function handleSubmissionScroll(event: Event) {
 		const container = event.target as HTMLElement;
@@ -3444,9 +3468,27 @@
 												</button>
 											</div>
 
-											<div class="text-muted-foreground text-sm">
+											<!-- 已选择视频计数器 - 可点击加载所有视频 -->
+											<button
+												type="button"
+												class="cursor-pointer rounded px-2 py-1 text-sm font-medium transition-colors {submissionVideos.length >=
+												submissionTotalCount
+													? 'text-green-600 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-950'
+													: 'text-orange-600 hover:bg-orange-50 dark:text-orange-400 dark:hover:bg-orange-950'}"
+												onclick={loadAllRemainingVideos}
+												disabled={isLoadingMore ||
+													submissionVideos.length >= submissionTotalCount}
+												title={submissionVideos.length >= submissionTotalCount
+													? '已加载全部视频'
+													: `点击加载剩余 ${submissionTotalCount - submissionVideos.length} 个视频`}
+											>
 												已选择 {selectedSubmissionCount} / {filteredSubmissionVideos.length} 个视频
-											</div>
+												{#if submissionTotalCount > 0 && submissionVideos.length < submissionTotalCount}
+													<span class="ml-1 text-xs">
+														({submissionVideos.length}/{submissionTotalCount})
+													</span>
+												{/if}
+											</button>
 										</div>
 									</div>
 
