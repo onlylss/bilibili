@@ -3386,13 +3386,16 @@ pub async fn fetch_page_danmaku(
 }
 
 /// 检查视频源是否有弹幕文件需要处理（删除或下载）
+/// 当发现缺失的弹幕文件时，会自动重置对应页面的弹幕下载状态
 async fn check_danmaku_work_needed(
     video_source: &VideoSourceEnum,
     connection: &DatabaseConnection,
 ) -> Result<bool> {
-    use sea_orm::EntityTrait;
+    use sea_orm::{EntityTrait, ActiveModelTrait, Set};
 
     let download_danmaku_enabled = video_source.download_danmaku();
+    let mut has_work = false;
+    let mut pages_to_reset = Vec::new();
 
     // 查询该视频源的所有视频及其页面
     let videos = entities::video::Entity::find()
@@ -3416,12 +3419,16 @@ async fn check_danmaku_work_needed(
                         if download_danmaku_enabled {
                             // 弹幕开启：检查是否有缺失的弹幕文件
                             if !danmaku_path.exists() {
-                                return Ok(true); // 发现缺失的弹幕文件，需要下载
+                                has_work = true;
+                                // 收集需要重置弹幕状态的页面
+                                pages_to_reset.push((page_model.id, page_model.download_status));
                             }
                         } else {
                             // 弹幕关闭：检查是否有需要删除的弹幕文件
                             if danmaku_path.exists() {
-                                return Ok(true); // 发现需要删除的弹幕文件
+                                has_work = true;
+                                // 收集需要重置弹幕状态的页面
+                                pages_to_reset.push((page_model.id, page_model.download_status));
                             }
                         }
                     }
@@ -3430,7 +3437,31 @@ async fn check_danmaku_work_needed(
         }
     }
 
-    Ok(false) // 没有需要处理的弹幕文件
+    // 如果有需要处理的页面，重置它们的弹幕下载状态
+    if !pages_to_reset.is_empty() {
+        use crate::utils::status::PageStatus;
+
+        info!("发现 {} 个页面的弹幕文件需要处理，正在重置弹幕下载状态...", pages_to_reset.len());
+
+        for (page_id, download_status) in pages_to_reset {
+            let mut page_status = PageStatus::from(download_status);
+            // 重置弹幕下载状态（索引3对应弹幕）
+            page_status.set(3, 0);
+
+            // 更新数据库
+            entities::page::ActiveModel {
+                id: Set(page_id),
+                download_status: Set(page_status.into()),
+                ..Default::default()
+            }
+            .update(connection)
+            .await?;
+        }
+
+        info!("已重置 {} 个页面的弹幕下载状态", pages_to_reset.len());
+    }
+
+    Ok(has_work)
 }
 
 
