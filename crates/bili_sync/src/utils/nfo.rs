@@ -483,22 +483,8 @@ impl NFO<'_> {
             .create_element("tvshow")
             .write_inner_content_async::<_, _, Error>(|writer| async move {
                 // 标题信息
-                let (display_title, original_title) = if Self::is_bangumi_video(tvshow.category) {
-                    // 对于番剧，尝试提取番剧名称作为主标题
-                    if let Some(bangumi_title) = Self::extract_bangumi_title_from_full_name(tvshow.name) {
-                        let cfg = crate::config::reload_config();
-                        let normalized = if cfg.bangumi_use_season_structure {
-                            crate::utils::bangumi_name_extractor::BangumiNameExtractor::normalize_series_name(&bangumi_title)
-                        } else {
-                            bangumi_title
-                        };
-                        (normalized, tvshow.name.to_string())
-                    } else {
-                        (tvshow.name.to_string(), tvshow.original_title.to_string())
-                    }
-                } else {
-                    (tvshow.name.to_string(), tvshow.original_title.to_string())
-                };
+                let display_title = tvshow.name.to_string();
+                let original_title = tvshow.original_title.to_string();
 
                 writer
                     .create_element("title")
@@ -519,27 +505,15 @@ impl NFO<'_> {
 
                 // 排序标题
                 if let Some(ref sorttitle) = tvshow.sorttitle {
-                    let cfg = crate::config::reload_config();
-                    let sorttitle_normalized = if cfg.bangumi_use_season_structure && Self::is_bangumi_video(tvshow.category) {
-                        crate::utils::bangumi_name_extractor::BangumiNameExtractor::normalize_series_name(sorttitle)
-                    } else {
-                        sorttitle.clone()
-                    };
                     writer
                         .create_element("sorttitle")
-                        .write_text_content_async(BytesText::new(&sorttitle_normalized))
+                        .write_text_content_async(BytesText::new(sorttitle))
                         .await?;
                 } else {
                     // 使用显示标题作为默认排序标题
-                    let cfg = crate::config::reload_config();
-                    let sort_title_to_write = if cfg.bangumi_use_season_structure && Self::is_bangumi_video(tvshow.category) {
-                        crate::utils::bangumi_name_extractor::BangumiNameExtractor::normalize_series_name(&display_title)
-                    } else {
-                        display_title.to_string()
-                    };
                     writer
                         .create_element("sorttitle")
-                        .write_text_content_async(BytesText::new(&sort_title_to_write))
+                        .write_text_content_async(BytesText::new(&display_title))
                         .await?;
                 }
 
@@ -1792,102 +1766,6 @@ impl<'a> TVShow<'a> {
         tvshow
     }
 
-    /// 从API获取的SeasonInfo创建带有完整元数据的TVShow
-    pub fn from_season_info(video: &'a video::Model, season_info: &'a crate::workflow::SeasonInfo) -> Self {
-        // 使用动态配置而非静态CONFIG
-        let config = crate::config::reload_config();
-
-        // 优先使用API的发布时间，如果没有则使用配置的时间类型
-        let aired_time = if let Some(ref publish_time) = season_info.publish_time {
-            // 使用统一的时间解析函数
-            {
-                let fallback_time = match config.nfo_config.time_type {
-                    crate::config::NFOTimeType::FavTime => video.favtime,
-                    crate::config::NFOTimeType::PubTime => video.pubtime,
-                };
-                parse_time_string(publish_time).unwrap_or(fallback_time)
-            }
-        } else {
-            // 没有API时间，使用配置的时间类型
-            match config.nfo_config.time_type {
-                crate::config::NFOTimeType::FavTime => video.favtime,
-                crate::config::NFOTimeType::PubTime => video.pubtime,
-            }
-        };
-
-        // 使用API提供的信息
-        let nfo_title = &season_info.title;
-        let evaluate = season_info.evaluate.as_deref().unwrap_or(&video.intro);
-
-        // 制作地区处理（使用第一个地区或默认值）
-        let country = season_info.areas.first().map(|s| s.as_str());
-
-        // 播出状态
-        let status = season_info.status.as_deref();
-
-        // 类型标签
-        let genres: Option<Vec<String>> = if !season_info.styles.is_empty() {
-            Some(season_info.styles.clone())
-        } else {
-            // 备选：使用video中的tags
-            video
-                .tags
-                .as_ref()
-                .and_then(|tags| serde_json::from_value(tags.clone()).ok())
-        };
-
-        // 构建用户评分信息，包含评分人数（作为标签使用）
-        let _rating_info = if let (Some(rating), Some(rating_count)) = (season_info.rating, season_info.rating_count) {
-            Some(format!("{:.1}分，{}人评价", rating, rating_count))
-        } else {
-            season_info.rating.map(|r| format!("{:.1}分", r))
-        };
-
-        Self {
-            name: nfo_title,
-            original_title: season_info.alias.as_deref().unwrap_or(&season_info.title),
-            intro: evaluate,
-            bvid: &video.bvid,
-            upper_id: video.upper_id,
-            upper_name: &video.upper_name,
-            aired: aired_time,
-            premiered: aired_time,
-            tags: genres,
-            user_rating: season_info.rating,
-            mpaa: None, // 可以从API的"分级"字段获取，但目前API中没有
-            country,
-            studio: None, // 可以从制作公司获取，但API中暂无此字段
-            status,
-            total_seasons: None, // 不生成totalseasons，让Jellyfin自动发现
-            total_episodes: season_info.total_episodes,
-            duration: None, // 单集平均时长，需要计算
-            view_count: season_info.total_views,
-            like_count: season_info.total_favorites,
-            category: video.category,
-            tagline: season_info.alias.as_deref().map(|s| s.to_string()),
-            set: if NFO::is_bangumi_video(video.category) {
-                NFO::extract_bangumi_title_from_full_name(&season_info.title)
-            } else {
-                Some(season_info.title.clone())
-            }, // 系列名称（清理季度信息）
-            sorttitle: Some(season_info.title.clone()),
-            actors_info: season_info.actors.clone(),
-            cover_url: season_info
-                .cover
-                .as_deref()
-                .or(season_info.horizontal_cover_169.as_deref())
-                .or(season_info.horizontal_cover_1610.as_deref())
-                .unwrap_or(&video.cover),
-            fanart_url: season_info
-                .cover
-                .as_deref()
-                .filter(|s| !s.is_empty()),
-            upper_face_url: if !video.upper_face.is_empty() { Some(&video.upper_face) } else { None },
-            // 使用season_id和media_id作为额外的uniqueid（通过扩展字段传递）
-            season_id: Some(season_info.season_id.clone()),
-            media_id: season_info.media_id,
-        }
-    }
 }
 
 impl<'a> From<&'a video::Model> for Upper {
@@ -2069,95 +1947,6 @@ impl<'a> Season<'a> {
 
         // 优先使用API的发布时间，如果没有则使用配置的时间类型
         let aired_time = if let Some(ref publish_time) = season_info.publish_time {
-            // 使用统一的时间解析函数
-            {
-                let fallback_time = match config.nfo_config.time_type {
-                    crate::config::NFOTimeType::FavTime => video.favtime,
-                    crate::config::NFOTimeType::PubTime => video.pubtime,
-                };
-                parse_time_string(publish_time).unwrap_or(fallback_time)
-            }
-        } else {
-            // 没有API时间，使用配置的时间类型
-            match config.nfo_config.time_type {
-                crate::config::NFOTimeType::FavTime => video.favtime,
-                crate::config::NFOTimeType::PubTime => video.pubtime,
-            }
-        };
-
-        // 使用API提供的信息
-        let nfo_title = &season_info.title;
-        let evaluate = season_info.evaluate.as_deref().unwrap_or(&video.intro);
-
-        // 制作地区处理（使用第一个地区或默认值）
-        let country = season_info.areas.first().map(|s| s.as_str());
-
-        // 播出状态
-        let status = season_info.status.as_deref();
-
-        // 类型标签
-        let genres: Option<Vec<String>> = if !season_info.styles.is_empty() {
-            Some(season_info.styles.clone())
-        } else {
-            // 备选：使用video中的tags
-            video
-                .tags
-                .as_ref()
-                .and_then(|tags| serde_json::from_value(tags.clone()).ok())
-        };
-
-        Self {
-            name: nfo_title,
-            original_title: season_info.alias.as_deref().unwrap_or(&season_info.title),
-            intro: evaluate,
-            season_number: video.season_number.unwrap_or(1), // 使用video的season_number
-            bvid: &video.bvid,
-            upper_id: video.upper_id,
-            upper_name: &video.upper_name,
-            aired: aired_time,
-            premiered: aired_time,
-            tags: genres,
-            user_rating: season_info.rating,
-            mpaa: None, // 可以从API的"分级"字段获取，但目前API中没有
-            country,
-            studio: None, // 可以从制作公司获取，但API中暂无此字段
-            status,
-            total_episodes: season_info.total_episodes,
-            duration: None, // 单集平均时长，需要计算
-            view_count: season_info.total_views,
-            like_count: season_info.total_favorites,
-            category: video.category,
-            tagline: season_info.alias.as_deref().map(|s| s.to_string()),
-            set: if NFO::is_bangumi_video(video.category) {
-                NFO::extract_bangumi_title_from_full_name(&season_info.title)
-            } else {
-                Some(season_info.title.clone())
-            }, // 系列名称（清理季度信息）
-            sorttitle: Some(season_info.title.clone()),
-            actors_info: season_info.actors.clone(),
-            cover_url: season_info
-                .cover
-                .as_deref()
-                .or(season_info.horizontal_cover_169.as_deref())
-                .or(season_info.horizontal_cover_1610.as_deref())
-                .unwrap_or(&video.cover),
-            fanart_url: season_info
-                .cover
-                .as_deref()
-                .filter(|s| !s.is_empty()),
-            upper_face_url: if !video.upper_face.is_empty() { Some(&video.upper_face) } else { None },
-            // 使用season_id和media_id作为额外的uniqueid
-            season_id: Some(season_info.season_id.clone()),
-            media_id: season_info.media_id,
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
     async fn test_generate_nfo() {
         let video = video::Model {
             intro: "intro".to_string(),
