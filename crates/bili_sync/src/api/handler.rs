@@ -5432,66 +5432,6 @@ async fn rename_existing_files(
             serde_json::Value::String(video.upper_id.to_string()),
         );
 
-        // 为番剧视频添加特殊变量
-        if is_bangumi {
-            // 从视频名称提取 series_title
-            let series_title = extract_bangumi_series_title(&video.name);
-            let season_title = extract_bangumi_season_title(&video.name);
-
-            template_data.insert("series_title".to_string(), serde_json::Value::String(series_title));
-            template_data.insert("season_title".to_string(), serde_json::Value::String(season_title));
-
-            // 添加其他番剧相关变量
-            template_data.insert(
-                "season_number".to_string(),
-                serde_json::Value::Number(serde_json::Number::from(video.season_number.unwrap_or(1))),
-            );
-            template_data.insert(
-                "episode_number".to_string(),
-                serde_json::Value::Number(serde_json::Number::from(video.episode_number.unwrap_or(1))),
-            );
-            template_data.insert(
-                "season".to_string(),
-                serde_json::Value::String(video.season_number.unwrap_or(1).to_string()),
-            );
-            template_data.insert(
-                "season_pad".to_string(),
-                serde_json::Value::String(format!("{:02}", video.season_number.unwrap_or(1))),
-            );
-            template_data.insert(
-                "episode".to_string(),
-                serde_json::Value::String(video.episode_number.unwrap_or(1).to_string()),
-            );
-            template_data.insert(
-                "episode_pad".to_string(),
-                serde_json::Value::String(format!("{:02}", video.episode_number.unwrap_or(1))),
-            );
-
-            // 添加其他信息
-            if let Some(ref season_id) = video.season_id {
-                template_data.insert("season_id".to_string(), serde_json::Value::String(season_id.clone()));
-            }
-            if let Some(ref ep_id) = video.ep_id {
-                template_data.insert("ep_id".to_string(), serde_json::Value::String(ep_id.clone()));
-            }
-            if let Some(ref share_copy) = video.share_copy {
-                template_data.insert("share_copy".to_string(), serde_json::Value::String(share_copy.clone()));
-            }
-            if let Some(ref actors) = video.actors {
-                template_data.insert("actors".to_string(), serde_json::Value::String(actors.clone()));
-            }
-
-            // 添加年份
-            template_data.insert(
-                "year".to_string(),
-                serde_json::Value::Number(serde_json::Number::from(video.pubtime.year())),
-            );
-            template_data.insert(
-                "studio".to_string(),
-                serde_json::Value::String(video.upper_name.clone()),
-            );
-        }
-
         // 为合集添加额外的模板变量
         if let Some(ref coll_name) = collection_name {
             template_data.insert(
@@ -5833,44 +5773,10 @@ async fn rename_existing_files(
                 serde_json::Value::String(format!("{:02}", page.pid)),
             );
 
-            // 为多P视频和番剧添加season相关变量
-            if !is_single_page || is_bangumi {
-                if is_bangumi {
-                    // 番剧需要添加 series_title 等变量
-                    let series_title = extract_bangumi_series_title(&video.name);
-                    let season_title = extract_bangumi_season_title(&video.name);
-
-                    page_template_data.insert("series_title".to_string(), serde_json::Value::String(series_title));
-                    page_template_data.insert("season_title".to_string(), serde_json::Value::String(season_title));
-
-                    // 添加其他番剧特有变量
-                    if let Some(ref share_copy) = video.share_copy {
-                        page_template_data
-                            .insert("share_copy".to_string(), serde_json::Value::String(share_copy.clone()));
-                    }
-                    if let Some(ref actors) = video.actors {
-                        page_template_data.insert("actors".to_string(), serde_json::Value::String(actors.clone()));
-                    }
-                    page_template_data.insert(
-                        "year".to_string(),
-                        serde_json::Value::Number(serde_json::Number::from(video.pubtime.year())),
-                    );
-                    page_template_data.insert(
-                        "studio".to_string(),
-                        serde_json::Value::String(video.upper_name.clone()),
-                    );
-                }
-
-                let season_number = if is_bangumi {
-                    video.season_number.unwrap_or(1)
-                } else {
-                    1
-                };
-                let episode_number = if is_bangumi {
-                    video.episode_number.unwrap_or(page.pid)
-                } else {
-                    page.pid
-                };
+            // 为多P视频添加season相关变量
+            if !is_single_page {
+                let season_number = 1;
+                let episode_number = page.pid;
 
                 page_template_data.insert(
                     "season".to_string(),
@@ -5910,19 +5816,7 @@ async fn rename_existing_files(
 
             // 根据视频类型选择不同的模板
             let page_template_value = serde_json::Value::Object(page_template_data.into_iter().collect());
-            let rendered_page_name = if is_bangumi {
-                // 番剧使用bangumi_name模板
-                match handlebars.render("bangumi", &page_template_value) {
-                    Ok(rendered) => rendered,
-                    Err(e) => {
-                        // 如果渲染失败，使用默认番剧格式
-                        warn!("番剧模板渲染失败: {}", e);
-                        let season_number = video.season_number.unwrap_or(1);
-                        let episode_number = video.episode_number.unwrap_or(page.pid);
-                        format!("S{:02}E{:02}-{:02}", season_number, episode_number, episode_number)
-                    }
-                }
-            } else if is_single_page {
+            let rendered_page_name = if is_single_page {
                 // 单P视频使用page_name模板
                 match handlebars.render("page", &page_template_value) {
                     Ok(rendered) => {
@@ -7861,15 +7755,7 @@ pub async fn get_video_bvid(
     Ok(ApiResponse::ok(VideoBvidResponse {
         bvid: video_info.bvid.clone(),
         title: video_info.title.clone(),
-        bilibili_url:
-            // 根据视频类型生成正确的B站URL
-            if video_info.source_type == Some(1) && video_info.ep_id.is_some() {
-                // 番剧类型：使用 ep_id 生成番剧专用URL
-                format!("https://www.bilibili.com/bangumi/play/ep{}", video_info.ep_id.as_ref().unwrap())
-            } else {
-                // 普通视频：使用 bvid 生成视频URL
-                format!("https://www.bilibili.com/video/{}", video_info.bvid)
-            },
+        bilibili_url: format!("https://www.bilibili.com/video/{}", video_info.bvid),
     }))
 }
 
@@ -7899,8 +7785,8 @@ pub async fn get_video_play_info(
         .map_err(|e| ApiError::from(anyhow!("获取视频信息失败: {}", e)))?;
 
     debug!(
-        "获取视频播放信息: bvid={}, aid={}, cid={}, source_type={:?}, ep_id={:?}",
-        video_info.bvid, video_info.aid, video_info.cid, video_info.source_type, video_info.ep_id
+        "获取视频播放信息: bvid={}, aid={}, cid={}",
+        video_info.bvid, video_info.aid, video_info.cid
     );
 
     // 创建B站客户端
@@ -7933,22 +7819,11 @@ pub async fn get_video_play_info(
         dimension: None,
     };
 
-    // 获取视频播放链接 - 根据视频类型选择不同的API
-    let mut page_analyzer = if video_info.source_type == Some(1) && video_info.ep_id.is_some() {
-        // 使用番剧专用API
-        let ep_id = video_info.ep_id.as_ref().unwrap();
-        debug!("API播放使用番剧专用API: ep_id={}", ep_id);
-        video
-            .get_bangumi_page_analyzer(&page_info, ep_id)
-            .await
-            .map_err(|e| ApiError::from(anyhow!("获取番剧视频分析器失败: {}", e)))?
-    } else {
-        // 使用普通视频API
-        video
-            .get_page_analyzer(&page_info)
-            .await
-            .map_err(|e| ApiError::from(anyhow!("获取视频分析器失败: {}", e)))?
-    };
+    // 获取视频播放链接
+    let mut page_analyzer = video
+        .get_page_analyzer(&page_info)
+        .await
+        .map_err(|e| ApiError::from(anyhow!("获取视频分析器失败: {}", e)))?;
 
     // 使用用户配置的筛选选项
     let filter_option = config.filter_option.clone();
@@ -8055,19 +7930,7 @@ pub async fn get_video_play_info(
         video_duration: Some(page_info.duration),
         video_quality_description: quality_desc,
         video_bvid: Some(video_info.bvid.clone()),
-        bilibili_url: Some(
-            // 根据视频类型生成正确的B站URL
-            if video_info.source_type == Some(1) && video_info.ep_id.is_some() {
-                // 番剧类型：使用 ep_id 生成番剧专用URL
-                format!(
-                    "https://www.bilibili.com/bangumi/play/ep{}",
-                    video_info.ep_id.as_ref().unwrap()
-                )
-            } else {
-                // 普通视频：使用 bvid 生成视频URL
-                format!("https://www.bilibili.com/video/{}", video_info.bvid)
-            },
-        ),
+        bilibili_url: Some(format!("https://www.bilibili.com/video/{}", video_info.bvid)),
     }))
 }
 
