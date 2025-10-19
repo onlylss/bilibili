@@ -1052,37 +1052,6 @@ pub async fn download_video_pages(
         }
     };
 
-    // 获取视频源基础路径
-                    let base_folder_name = crate::config::with_config(|bundle| {
-                        bundle.render_video_template(&video_format_args(&final_video_model))
-                    })
-                    .map_err(|e| anyhow::anyhow!("模板渲染失败: {}", e))?;
-
-                    debug!("合集分离模式 - 渲染的文件夹名: '{}'", base_folder_name);
-                    debug!("合集分离模式 - 基础路径: {:?}", video_source_base_path);
-
-                    // **智能判断：根据模板内容决定是否需要去重**
-                    let video_template =
-                        crate::config::with_config(|bundle| bundle.config.video_name.as_ref().to_string());
-                    let needs_deduplication = video_template.contains("title")
-                        || (video_template.contains("name") && !video_template.contains("upper_name"));
-
-                    if needs_deduplication {
-                        // 智能去重：检查文件夹名是否已存在，如果存在则追加唯一标识符
-                        let unique_folder_name = generate_unique_folder_name(
-                            video_source_base_path,
-                            &base_folder_name,
-                            &video_model,
-                            &video_model.pubtime.format("%Y-%m-%d").to_string(),
-                        );
-                        video_source_base_path.join(&unique_folder_name)
-                    } else {
-                        // 不使用去重，允许多个视频共享同一文件夹
-                        video_source_base_path.join(&base_folder_name)
-                    }
-                }
-            }
-        } else {
             // 其他类型的视频源使用原来的逻辑
             let base_folder_name = crate::config::with_config(|bundle| {
                 bundle.render_video_template(&video_format_args(&final_video_model))
