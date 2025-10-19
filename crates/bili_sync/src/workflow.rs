@@ -170,14 +170,19 @@ pub async fn process_video_source(
         let has_unfilled = !filter_unfilled_videos(video_source.filter_expr(), connection).await?.is_empty();
         let has_unhandled = !filter_unhandled_video_pages(video_source.filter_expr(), connection).await?.is_empty();
         let has_failed = !get_failed_videos_in_current_cycle(video_source.filter_expr(), connection).await?.is_empty();
-        if !(has_unfilled || has_unhandled || has_failed) {
-            // 即使跳过详情与下载阶段，也需要检查弹幕文件（可能需要删除）
-            if !video_source.download_danmaku() {
-                info!("本轮未发现新视频，但弹幕已关闭，检查并清理弹幕文件");
-                cleanup_danmaku_files(&video_source, connection).await?;
-            }
+
+        // 检查是否有弹幕文件需要处理（删除或下载）
+        let has_danmaku_work = check_danmaku_work_needed(&video_source, connection).await?;
+
+        if !(has_unfilled || has_unhandled || has_failed || has_danmaku_work) {
             info!("本轮未发现新视频，且无待处理任务，跳过详情与下载阶段");
             return Ok((new_video_count, new_videos));
+        } else if has_danmaku_work {
+            if video_source.download_danmaku() {
+                info!("本轮未发现新视频，但弹幕已开启且有缺失文件，继续执行下载阶段");
+            } else {
+                info!("本轮未发现新视频，但弹幕已关闭且有文件需清理，继续执行下载阶段");
+            }
         } else {
             info!("本轮未发现新视频，但存在待处理任务（重置/未完成/可重试），继续执行下载阶段");
         }
@@ -3380,12 +3385,63 @@ pub async fn fetch_page_danmaku(
     Ok(ExecutionStatus::Succeeded)
 }
 
+/// 检查视频源是否有弹幕文件需要处理（删除或下载）
+async fn check_danmaku_work_needed(
+    video_source: &VideoSourceEnum,
+    connection: &DatabaseConnection,
+) -> Result<bool> {
+    use sea_orm::EntityTrait;
+
+    let download_danmaku_enabled = video_source.download_danmaku();
+
+    // 查询该视频源的所有视频及其页面
+    let videos = entities::video::Entity::find()
+        .filter(video_source.filter_expr())
+        .all(connection)
+        .await?;
+
+    for video_model in videos {
+        let pages = entities::page::Entity::find()
+            .filter(entities::page::Column::VideoId.eq(video_model.id))
+            .all(connection)
+            .await?;
+
+        for page_model in pages {
+            if let Some(video_path_str) = &page_model.path {
+                let video_path = std::path::Path::new(video_path_str);
+                if let Some(parent) = video_path.parent() {
+                    if let Some(stem) = video_path.file_stem() {
+                        let danmaku_path = parent.join(format!("{}.zh-CN.default.ass", stem.to_string_lossy()));
+
+                        if download_danmaku_enabled {
+                            // 弹幕开启：检查是否有缺失的弹幕文件
+                            if !danmaku_path.exists() {
+                                return Ok(true); // 发现缺失的弹幕文件，需要下载
+                            }
+                        } else {
+                            // 弹幕关闭：检查是否有需要删除的弹幕文件
+                            if danmaku_path.exists() {
+                                return Ok(true); // 发现需要删除的弹幕文件
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(false) // 没有需要处理的弹幕文件
+}
+
 /// 清理视频源的所有弹幕文件（当弹幕下载关闭时）
 async fn cleanup_danmaku_files(
     video_source: &VideoSourceEnum,
     connection: &DatabaseConnection,
 ) -> Result<()> {
     use sea_orm::EntityTrait;
+
+    let source_name = video_source.name();
+    info!("开始清理视频源「{}」的弹幕文件...", source_name);
 
     // 查询该视频源的所有视频及其页面
     let videos = entities::video::Entity::find()
@@ -3395,6 +3451,7 @@ async fn cleanup_danmaku_files(
 
     let mut deleted_count = 0;
     let mut checked_count = 0;
+    let mut error_count = 0;
 
     for video_model in videos {
         // 查询该视频的所有页面
@@ -3419,16 +3476,11 @@ async fn cleanup_danmaku_files(
                             match tokio::fs::remove_file(&danmaku_path).await {
                                 Ok(_) => {
                                     deleted_count += 1;
-                                    info!(
-                                        "弹幕已关闭，已删除弹幕文件: 视频「{}」P{}, 路径: {:?}",
-                                        &video_model.name, page_model.pid, danmaku_path
-                                    );
+                                    debug!("已删除弹幕文件: {:?}", danmaku_path);
                                 }
                                 Err(e) => {
-                                    warn!(
-                                        "删除弹幕文件失败: 视频「{}」P{}, 路径: {:?}, 错误: {}",
-                                        &video_model.name, page_model.pid, danmaku_path, e
-                                    );
+                                    error_count += 1;
+                                    warn!("删除弹幕文件失败: {:?}, 错误: {}", danmaku_path, e);
                                 }
                             }
                         }
@@ -3438,10 +3490,20 @@ async fn cleanup_danmaku_files(
         }
     }
 
-    if deleted_count > 0 {
-        info!("弹幕清理完成: 检查了 {} 个页面，删除了 {} 个弹幕文件", checked_count, deleted_count);
+    if deleted_count > 0 || error_count > 0 {
+        info!(
+            "视频源「{}」弹幕清理完成: 检查 {} 个页面，成功删除 {} 个文件{}",
+            source_name,
+            checked_count,
+            deleted_count,
+            if error_count > 0 {
+                format!("，失败 {} 个", error_count)
+            } else {
+                String::new()
+            }
+        );
     } else {
-        info!("弹幕清理完成: 检查了 {} 个页面，未发现需要删除的弹幕文件", checked_count);
+        info!("视频源「{}」弹幕清理完成: 检查 {} 个页面，未发现需要删除的弹幕文件", source_name, checked_count);
     }
 
     Ok(())
