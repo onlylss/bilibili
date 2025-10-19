@@ -1939,14 +1939,6 @@ impl<'a> From<&'a video::Model> for Season<'a> {
     }
 }
 
-impl<'a> Season<'a> {
-    /// 从API获取的SeasonInfo创建带有完整元数据的Season
-    pub fn from_season_info(video: &'a video::Model, season_info: &'a crate::workflow::SeasonInfo) -> Self {
-        // 使用动态配置而非静态CONFIG
-        let config = crate::config::reload_config();
-
-        // 优先使用API的发布时间，如果没有则使用配置的时间类型
-        let aired_time = if let Some(ref publish_time) = season_info.publish_time {
     async fn test_generate_nfo() {
         let video = video::Model {
             intro: "intro".to_string(),
