@@ -22,8 +22,6 @@ use crate::api::handler::{
     delete_video_source,
     download_log_file,
     generate_qr_code,
-    get_bangumi_seasons,
-    get_bangumi_sources_for_merge,
     get_config,
     get_config_history,
     // 新增配置管理API
@@ -140,7 +138,6 @@ pub async fn http_server(_database_connection: Arc<DatabaseConnection>) -> Resul
     let app = Router::new()
         .route("/api/video-sources", get(get_video_sources))
         .route("/api/video-sources", post(add_video_source))
-        .route("/api/video-sources/bangumi/list", get(get_bangumi_sources_for_merge))
         .route(
             "/api/video-sources/{source_type}/{id}/enabled",
             put(update_video_source_enabled),
@@ -208,7 +205,6 @@ pub async fn http_server(_database_connection: Arc<DatabaseConnection>) -> Resul
         .route("/api/auth/qr/poll", get(poll_qr_status))
         .route("/api/auth/current-user", get(get_current_user))
         .route("/api/auth/clear-credential", post(clear_credential))
-        .route("/api/bangumi/seasons/{season_id}", get(get_bangumi_seasons))
         .route("/api/search", get(search_bilibili))
         .route("/api/user/favorites", get(get_user_favorites))
         .route("/api/user/{uid}/favorites", get(get_user_favorites_by_uid))
