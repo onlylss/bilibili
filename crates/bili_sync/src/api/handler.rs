@@ -2504,12 +2504,6 @@ pub async fn update_video_source_download_danmaku_internal(
 ) -> Result<crate::api::response::UpdateVideoSourceDownloadDanmakuResponse, ApiError> {
     let txn = db.begin().await?;
 
-    // 如果关闭弹幕下载,需要删除已有的弹幕文件
-    let mut deleted_danmaku_count = 0;
-    if !download_danmaku {
-        deleted_danmaku_count = delete_danmaku_files_for_source(&txn, &source_type, id).await?;
-    }
-
     let result = match source_type.as_str() {
         "collection" => {
             let collection = collection::Entity::find_by_id(id)
@@ -2530,16 +2524,11 @@ pub async fn update_video_source_download_danmaku_internal(
                 source_id: id,
                 source_type: "collection".to_string(),
                 download_danmaku,
-                deleted_danmaku_count,
+                deleted_danmaku_count: 0,
                 message: format!(
-                    "合集 {} 已{}弹幕下载{}",
+                    "合集 {} 已{}弹幕下载",
                     collection.name,
-                    if download_danmaku { "开启" } else { "关闭" },
-                    if !download_danmaku && deleted_danmaku_count > 0 {
-                        format!(",已删除 {} 个弹幕文件", deleted_danmaku_count)
-                    } else {
-                        String::new()
-                    }
+                    if download_danmaku { "开启" } else { "关闭" }
                 ),
             }
         }
@@ -2562,16 +2551,11 @@ pub async fn update_video_source_download_danmaku_internal(
                 source_id: id,
                 source_type: "favorite".to_string(),
                 download_danmaku,
-                deleted_danmaku_count,
+                deleted_danmaku_count: 0,
                 message: format!(
-                    "收藏夹 {} 已{}弹幕下载{}",
+                    "收藏夹 {} 已{}弹幕下载",
                     favorite.name,
-                    if download_danmaku { "开启" } else { "关闭" },
-                    if !download_danmaku && deleted_danmaku_count > 0 {
-                        format!(",已删除 {} 个弹幕文件", deleted_danmaku_count)
-                    } else {
-                        String::new()
-                    }
+                    if download_danmaku { "开启" } else { "关闭" }
                 ),
             }
         }
@@ -2594,16 +2578,11 @@ pub async fn update_video_source_download_danmaku_internal(
                 source_id: id,
                 source_type: "submission".to_string(),
                 download_danmaku,
-                deleted_danmaku_count,
+                deleted_danmaku_count: 0,
                 message: format!(
-                    "UP主投稿 {} 已{}弹幕下载{}",
+                    "UP主投稿 {} 已{}弹幕下载",
                     submission.upper_name,
-                    if download_danmaku { "开启" } else { "关闭" },
-                    if !download_danmaku && deleted_danmaku_count > 0 {
-                        format!(",已删除 {} 个弹幕文件", deleted_danmaku_count)
-                    } else {
-                        String::new()
-                    }
+                    if download_danmaku { "开启" } else { "关闭" }
                 ),
             }
         }
@@ -2626,15 +2605,10 @@ pub async fn update_video_source_download_danmaku_internal(
                 source_id: id,
                 source_type: "watch_later".to_string(),
                 download_danmaku,
-                deleted_danmaku_count,
+                deleted_danmaku_count: 0,
                 message: format!(
-                    "稍后观看已{}弹幕下载{}",
-                    if download_danmaku { "开启" } else { "关闭" },
-                    if !download_danmaku && deleted_danmaku_count > 0 {
-                        format!(",已删除 {} 个弹幕文件", deleted_danmaku_count)
-                    } else {
-                        String::new()
-                    }
+                    "稍后观看已{}弹幕下载",
+                    if download_danmaku { "开启" } else { "关闭" }
                 ),
             }
         }
@@ -2657,16 +2631,11 @@ pub async fn update_video_source_download_danmaku_internal(
                 source_id: id,
                 source_type: "bangumi".to_string(),
                 download_danmaku,
-                deleted_danmaku_count,
+                deleted_danmaku_count: 0,
                 message: format!(
-                    "番剧 {} 已{}弹幕下载{}",
+                    "番剧 {} 已{}弹幕下载",
                     bangumi.name,
-                    if download_danmaku { "开启" } else { "关闭" },
-                    if !download_danmaku && deleted_danmaku_count > 0 {
-                        format!(",已删除 {} 个弹幕文件", deleted_danmaku_count)
-                    } else {
-                        String::new()
-                    }
+                    if download_danmaku { "开启" } else { "关闭" }
                 ),
             }
         }

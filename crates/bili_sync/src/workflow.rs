@@ -3290,7 +3290,20 @@ pub async fn fetch_page_danmaku(
     danmaku_path: PathBuf,
     token: CancellationToken,
 ) -> Result<ExecutionStatus> {
+    // 如果弹幕下载已关闭,检查并删除已存在的弹幕文件
     if !should_run {
+        if danmaku_path.exists() {
+            if let Err(e) = tokio::fs::remove_file(&danmaku_path).await {
+                warn!("删除弹幕文件失败: {:?}, 错误: {}", danmaku_path, e);
+            } else {
+                info!("已删除弹幕文件: {:?}", danmaku_path);
+            }
+        }
+        return Ok(ExecutionStatus::Skipped);
+    }
+
+    // 如果弹幕文件已存在,跳过下载
+    if danmaku_path.exists() {
         return Ok(ExecutionStatus::Skipped);
     }
 
