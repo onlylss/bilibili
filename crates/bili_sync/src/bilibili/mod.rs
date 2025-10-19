@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
-pub use analyzer::{BestStream, FilterOption, Stream};
+pub use analyzer::{AudioQuality, BestStream, FilterOption, Stream, VideoCodecs, VideoQuality};
 use anyhow::{bail, ensure, Result};
 use arc_swap::ArcSwapOption;
 pub use captcha_server::{get_captcha_info, serve_captcha_page, submit_captcha_result};
 pub use captcha_solver::CaptchaSolver;
 use chrono::serde::ts_seconds;
 use chrono::{DateTime, Utc};
-pub use client::{BiliClient, Client};
+pub use client::{BiliClient, Client, SearchResult};
 pub use collection::{Collection, CollectionItem, CollectionType};
 pub use credential::Credential;
 pub use danmaku::DanmakuOption;
@@ -18,7 +18,7 @@ use once_cell::sync::Lazy;
 pub use risk_control::{CaptchaInfo, CaptchaResult, GeetestInfo, RiskControl};
 pub use submission::Submission;
 pub use verification_coordinator::{VerificationRequest, VERIFICATION_COORDINATOR};
-pub use video::{Dimension, PageInfo, Video};
+pub use video::{bvid_to_aid, Dimension, PageInfo, Video};
 pub use watch_later::WatchLater;
 
 mod analyzer;
