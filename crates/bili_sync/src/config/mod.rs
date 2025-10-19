@@ -15,7 +15,7 @@ use crate::bilibili::{Credential, DanmakuOption, FilterOption};
 pub use crate::config::bundle::ConfigBundle;
 pub use crate::config::clap::version;
 pub use crate::config::global::{
-    init_config_with_database, reload_config, with_config, ARGS, CONFIG_BUNDLE, CONFIG_DIR,
+    get_config_manager, init_config_with_database, reload_config, reload_config_bundle, with_config, ARGS, CONFIG_BUNDLE, CONFIG_DIR,
 };
 use crate::config::item::ConcurrentLimit;
 pub use crate::config::item::{
@@ -422,9 +422,7 @@ impl Clone for Config {
             video_name: self.video_name.clone(),
             page_name: self.page_name.clone(),
             multi_page_name: self.multi_page_name.clone(),
-            bangumi_name: self.bangumi_name.clone(),
             folder_structure: self.folder_structure.clone(),
-            bangumi_folder_name: self.bangumi_folder_name.clone(),
             collection_folder_mode: self.collection_folder_mode.clone(),
             interval: self.interval,
             upper_path: self.upper_path.clone(),
@@ -435,14 +433,12 @@ impl Clone for Config {
             cdn_sorting: self.cdn_sorting,
             submission_risk_control: self.submission_risk_control.clone(),
             scan_deleted_videos: self.scan_deleted_videos,
-            skip_bangumi_preview: self.skip_bangumi_preview,
             enable_aria2_health_check: self.enable_aria2_health_check,
             enable_aria2_auto_restart: self.enable_aria2_auto_restart,
             aria2_health_check_interval: self.aria2_health_check_interval,
             actors_field_initialized: self.actors_field_initialized,
             multi_page_use_season_structure: self.multi_page_use_season_structure,
             collection_use_season_structure: self.collection_use_season_structure,
-            bangumi_use_season_structure: self.bangumi_use_season_structure,
             notification: self.notification.clone(),
             enable_startup_data_fix: self.enable_startup_data_fix,
             enable_cid_population: self.enable_cid_population,
@@ -462,9 +458,7 @@ impl Default for Config {
             video_name: Cow::Borrowed("{{upper_name}}/{{title}}"),
             page_name: Cow::Borrowed("{{pubtime}}-{{bvid}}-{{truncate title 20}}"),
             multi_page_name: Cow::Borrowed("P{{pid_pad}}.{{ptitle}}"),
-            bangumi_name: Cow::Borrowed("S{{season_pad}}E{{pid_pad}}"),
             folder_structure: Cow::Borrowed("Season {{season_pad}}"),
-            bangumi_folder_name: Cow::Borrowed("{{series_title}}"),
             collection_folder_mode: Cow::Borrowed("unified"),
             interval: 1200,
             upper_path: CONFIG_DIR.join("upper_face"),
@@ -475,14 +469,12 @@ impl Default for Config {
             cdn_sorting: default_cdn_sorting(),
             submission_risk_control: crate::config::item::SubmissionRiskControlConfig::default(),
             scan_deleted_videos: false,
-            skip_bangumi_preview: default_skip_bangumi_preview(),
             enable_aria2_health_check: false,
             enable_aria2_auto_restart: false,
             aria2_health_check_interval: default_aria2_health_check_interval(),
             actors_field_initialized: false,
             multi_page_use_season_structure: default_multi_page_use_season_structure(),
             collection_use_season_structure: default_collection_use_season_structure(),
-            bangumi_use_season_structure: default_bangumi_use_season_structure(),
             notification: NotificationConfig::default(),
             enable_startup_data_fix: false, // 默认关闭，减少不必要的日志
             enable_cid_population: false,   // 默认关闭，减少不必要的日志
@@ -541,10 +533,6 @@ impl Config {
         if self.multi_page_name.is_empty() {
             ok = false;
             error!("未设置 multi_page_name 模板");
-        }
-        if self.bangumi_name.is_empty() {
-            ok = false;
-            error!("未设置 bangumi_name 模板");
         }
         if self.folder_structure.is_empty() {
             ok = false;

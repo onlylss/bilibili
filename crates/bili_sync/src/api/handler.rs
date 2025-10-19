@@ -3928,9 +3928,7 @@ pub async fn get_config() -> Result<ApiResponse<crate::api::response::ConfigResp
         video_name: config.video_name.to_string(),
         page_name: config.page_name.to_string(),
         multi_page_name: config.multi_page_name.to_string(),
-        bangumi_name: config.bangumi_name.to_string(),
         folder_structure: config.folder_structure.to_string(),
-        bangumi_folder_name: config.bangumi_folder_name.to_string(),
         collection_folder_mode: config.collection_folder_mode.to_string(),
         time_format: config.time_format.clone(),
         interval: config.interval,
@@ -3992,8 +3990,6 @@ pub async fn get_config() -> Result<ApiResponse<crate::api::response::ConfigResp
         multi_page_use_season_structure: config.multi_page_use_season_structure,
         // 合集目录结构配置
         collection_use_season_structure: config.collection_use_season_structure,
-        // 番剧目录结构配置
-        bangumi_use_season_structure: config.bangumi_use_season_structure,
         // UP主头像保存路径
         upper_path: config.upper_path.to_string_lossy().to_string(),
         // B站凭证信息
@@ -4118,8 +4114,6 @@ pub async fn update_config(
             multi_page_use_season_structure: params.multi_page_use_season_structure,
             // 合集目录结构配置
             collection_use_season_structure: params.collection_use_season_structure,
-            // 番剧目录结构配置
-            bangumi_use_season_structure: params.bangumi_use_season_structure,
             // UP主头像保存路径
             upper_path: params.upper_path.clone(),
             task_id: task_id.clone(),
@@ -4163,7 +4157,6 @@ pub async fn update_config_internal(
     let original_video_name = config.video_name.clone();
     let original_page_name = config.page_name.clone();
     let original_multi_page_name = config.multi_page_name.clone();
-    let original_bangumi_name = config.bangumi_name.clone();
     let original_folder_structure = config.folder_structure.clone();
     let original_collection_folder_mode = config.collection_folder_mode.clone();
 
@@ -4240,20 +4233,6 @@ pub async fn update_config_internal(
         if original_nfo_time_type != new_nfo_time_type {
             config.nfo_time_type = new_nfo_time_type;
             updated_fields.push("nfo_time_type");
-        }
-    }
-
-    if let Some(bangumi_name) = params.bangumi_name {
-        if !bangumi_name.trim().is_empty() && bangumi_name != original_bangumi_name.as_ref() {
-            config.bangumi_name = Cow::Owned(bangumi_name);
-            updated_fields.push("bangumi_name");
-        }
-    }
-
-    if let Some(bangumi_folder_name) = params.bangumi_folder_name {
-        if !bangumi_folder_name.trim().is_empty() && bangumi_folder_name != config.bangumi_folder_name.as_ref() {
-            config.bangumi_folder_name = Cow::Owned(bangumi_folder_name);
-            updated_fields.push("bangumi_folder_name");
         }
     }
 
@@ -4660,14 +4639,6 @@ pub async fn update_config_internal(
         }
     }
 
-    // 处理番剧目录结构配置
-    if let Some(use_season_structure) = params.bangumi_use_season_structure {
-        if use_season_structure != config.bangumi_use_season_structure {
-            config.bangumi_use_season_structure = use_season_structure;
-            updated_fields.push("bangumi_use_season_structure");
-        }
-    }
-
     // UP主头像保存路径
     if let Some(upper_path) = params.upper_path {
         if !upper_path.trim().is_empty() {
@@ -4872,22 +4843,9 @@ pub async fn update_config_internal(
                         .update_config_item("multi_page_name", serde_json::to_value(&config.multi_page_name)?)
                         .await
                 }
-                "bangumi_name" => {
-                    manager
-                        .update_config_item("bangumi_name", serde_json::to_value(&config.bangumi_name)?)
-                        .await
-                }
                 "folder_structure" => {
                     manager
                         .update_config_item("folder_structure", serde_json::to_value(&config.folder_structure)?)
-                        .await
-                }
-                "bangumi_folder_name" => {
-                    manager
-                        .update_config_item(
-                            "bangumi_folder_name",
-                            serde_json::to_value(&config.bangumi_folder_name)?,
-                        )
                         .await
                 }
                 "collection_folder_mode" => {
@@ -5059,14 +5017,6 @@ pub async fn update_config_internal(
                         )
                         .await
                 }
-                "bangumi_use_season_structure" => {
-                    manager
-                        .update_config_item(
-                            "bangumi_use_season_structure",
-                            serde_json::to_value(config.bangumi_use_season_structure)?,
-                        )
-                        .await
-                }
                 // 通知配置字段
                 "serverchan_key"
                 | "enable_scan_notifications"
@@ -5150,9 +5100,7 @@ pub async fn update_config_internal(
         "video_name",
         "page_name",
         "multi_page_name",
-        "bangumi_name",
         "folder_structure",
-        "bangumi_folder_name",
     ];
     let should_rename = updated_fields.iter().any(|field| naming_fields.contains(field));
 
@@ -5164,7 +5112,6 @@ pub async fn update_config_internal(
         // 根据更新的字段类型来决定重命名哪些文件
         let rename_single_page = updated_fields.contains(&"page_name") || updated_fields.contains(&"video_name");
         let rename_multi_page = updated_fields.contains(&"multi_page_name") || updated_fields.contains(&"video_name");
-        let rename_bangumi = updated_fields.contains(&"bangumi_name") || updated_fields.contains(&"video_name");
         let rename_folder_structure = updated_fields.contains(&"folder_structure");
 
         // 重新获取最新的配置，确保使用重新加载后的配置
@@ -5370,18 +5317,13 @@ async fn rename_existing_files(
     let video_template = config.video_name.replace(['/', '\\'], "___PATH_SEP___");
     let page_template = config.page_name.replace(['/', '\\'], "___PATH_SEP___");
     let multi_page_template = config.multi_page_name.replace(['/', '\\'], "___PATH_SEP___");
-    let bangumi_template = config.bangumi_name.replace(['/', '\\'], "___PATH_SEP___");
 
     info!("🔧 原始视频模板: '{}'", config.video_name);
     info!("🔧 处理后视频模板: '{}'", video_template);
-    info!("🔧 原始番剧模板: '{}'", config.bangumi_name);
-    info!("🔧 处理后番剧模板: '{}'", bangumi_template);
-    info!("🔧 从配置中读取的bangumi_name: '{}'", config.bangumi_name);
 
     handlebars.register_template_string("video", video_template)?;
     handlebars.register_template_string("page", page_template)?;
     handlebars.register_template_string("multi_page", multi_page_template)?;
-    handlebars.register_template_string("bangumi", bangumi_template)?;
 
     // 分别处理不同类型的视频
     let mut all_videos = Vec::new();
@@ -6044,11 +5986,7 @@ async fn rename_existing_files(
                 } else {
                     // 如果page.path为空，尝试在Season子目录中查找
                     // 对于使用Season结构的视频，文件可能在Season子目录中
-                    let season_dir = if is_bangumi && config.bangumi_use_season_structure {
-                        // 番剧使用Season结构
-                        let season_number = video.season_number.unwrap_or(1);
-                        final_video_path.join(format!("Season {:02}", season_number))
-                    } else if !is_single_page && config.multi_page_use_season_structure {
+                    let season_dir = if !is_single_page && config.multi_page_use_season_structure {
                         // 多P视频使用Season结构
                         final_video_path.join("Season 01")
                     } else if is_collection && config.collection_use_season_structure {
