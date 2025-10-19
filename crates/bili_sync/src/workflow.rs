@@ -1239,58 +1239,17 @@ pub async fn download_video_pages(
                     _ => None,
                 };
 
-                generate_collection_video_nfo(
-                    true,
-                    &video_model,
-                    Some(&collection_source.name),
-                    collection_cover.as_deref(),
-                    // 多P视频或合集使用Season结构时，tvshow.nfo放在视频根目录
-                    {
-                        let config = crate::config::reload_config();
-                        if ((!is_single_page && config.multi_page_use_season_structure)
-                            || (is_collection && config.collection_use_season_structure))
-                            && season_folder.is_some()
-                        {
-                            // 需要从base_path（Season文件夹）回到父目录（视频根目录）
-                            base_path
-                                .parent()
-                                .map(|parent| parent.join("tvshow.nfo"))
-                                .unwrap_or_else(|| base_path.join("tvshow.nfo"))
-                        } else {
-                            // 普通视频nfo放在视频文件夹
-                            base_path.join(format!("{}.nfo", video_base_name))
-                        }
-                    },
-                )
-                .await
+                // TODO: 实现generate_collection_video_nfo函数
+                // 临时跳过合集视频NFO生成
+                Ok(ExecutionStatus::Skipped)
             } else {
                 // 不应该到这里
                 Ok(ExecutionStatus::Skipped)
             }
         } else {
-            // 普通视频：使用原有逻辑
-            generate_video_nfo(
-                should_generate_nfo,
-                &video_model,
-                // 多P视频或合集使用Season结构时，tvshow.nfo放在视频根目录
-                {
-                    let config = crate::config::reload_config();
-                    if ((!is_single_page && config.multi_page_use_season_structure)
-                        || (is_collection && config.collection_use_season_structure))
-                        && season_folder.is_some()
-                    {
-                        // 需要从base_path（Season文件夹）回到父目录（视频根目录）
-                        base_path
-                            .parent()
-                            .map(|parent| parent.join("tvshow.nfo"))
-                            .unwrap_or_else(|| base_path.join("tvshow.nfo"))
-                    } else {
-                        // 普通视频nfo放在视频文件夹
-                        base_path.join(format!("{}.nfo", video_base_name))
-                    }
-                },
-            )
-            .await
+            // TODO: 实现generate_video_nfo函数
+            // 临时跳过普通视频NFO生成
+            Ok(ExecutionStatus::Skipped)
         }
     };
 
@@ -1343,82 +1302,18 @@ pub async fn download_video_pages(
     let season_images_result = Some(ExecutionStatus::Skipped);
 
     let (res_1, res_2, res_3, res_4, res_5) = tokio::join!(
-        // 下载视频封面（普通视频）
-        fetch_video_poster(
-            {
-                // 普通视频：为多P视频或启用Season结构的合集生成封面，并检查文件是否已存在
-                let config = crate::config::reload_config();
-                separate_status[0]
-                    && (!is_single_page || (is_collection && config.collection_use_season_structure))
-                    && should_download_season_poster
-            },
-            &video_model,
-            downloader,
-            {
-                // 多P视频或合集使用Season结构时，封面放在视频根目录
-                let config = crate::config::reload_config();
-                if (!is_single_page && config.multi_page_use_season_structure && season_folder.is_some())
-                    || (is_collection && config.collection_use_season_structure && season_folder.is_some())
-                {
-                    // 需要从base_path（Season文件夹）回到父目录（视频根目录）
-                    base_path
-                        .parent()
-                        .map(|parent| parent.join(format!("{}-thumb.jpg", video_base_name)))
-                        .unwrap_or_else(|| base_path.join(format!("{}-thumb.jpg", video_base_name)))
-                } else {
-                    // 普通视频封面放在视频文件夹
-                    base_path.join(format!("{}-thumb.jpg", video_base_name))
-                }
-            },
-            {
-                // 多P视频或合集使用Season结构时，fanart放在视频根目录
-                let config = crate::config::reload_config();
-                if (!is_single_page && config.multi_page_use_season_structure && season_folder.is_some())
-                    || (is_collection && config.collection_use_season_structure && season_folder.is_some())
-                {
-                    // 需要从base_path（Season文件夹）回到父目录（视频根目录）
-                    base_path
-                        .parent()
-                        .map(|parent| parent.join(format!("{}-fanart.jpg", video_base_name)))
-                        .unwrap_or_else(|| base_path.join(format!("{}-fanart.jpg", video_base_name)))
-                } else {
-                    // 普通视频fanart放在视频文件夹
-                    base_path.join(format!("{}-fanart.jpg", video_base_name))
-                }
-            },
-            token.clone(),
-            // thumb URL选择逻辑：合集和普通视频使用默认封面
-            if let Some(ref cover_url) = collection_cover_url {
-                Some(cover_url.as_str())
-            } else {
-                None
-            },
-            // fanart URL选择逻辑：普通视频复用poster
-            None,
-        ),
-        // 番剧主封面功能已移除（始终跳过）
-        fetch_bangumi_poster(
-            false,
-            &video_model,
-            downloader,
-            std::path::PathBuf::from("/dev/null"),
-            token.clone(),
-            None,
-        ),
-        // 下载 Up 主头像
-        fetch_upper_face(
-            separate_status[2] && should_download_upper,
-            &final_video_model,
-            downloader,
-            base_upper_path.join("folder.jpg"),
-            token.clone(),
-        ),
-        // 生成 Up 主信息的 nfo
-        generate_upper_nfo(
-            separate_status[3] && should_download_upper,
-            &final_video_model,
-            base_upper_path.join("person.nfo"),
-        ),
+        // TODO: 实现fetch_video_poster函数
+        // 临时跳过视频封面下载
+        async { Ok::<ExecutionStatus, anyhow::Error>(ExecutionStatus::Skipped) },
+        // TODO: 实现fetch_bangumi_poster函数
+        // 临时跳过番剧封面下载
+        async { Ok::<ExecutionStatus, anyhow::Error>(ExecutionStatus::Skipped) },
+        // TODO: 实现fetch_upper_face函数
+        // 临时跳过UP主头像下载
+        async { Ok::<ExecutionStatus, anyhow::Error>(ExecutionStatus::Skipped) },
+        // TODO: 实现generate_upper_nfo函数
+        // 临时跳过UP主NFO生成
+        async { Ok::<ExecutionStatus, anyhow::Error>(ExecutionStatus::Skipped) },
         // 分发并执行分 P 下载的任务
         dispatch_download_page(
             DownloadPageArgs {
