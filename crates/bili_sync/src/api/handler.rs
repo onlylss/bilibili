@@ -290,8 +290,6 @@ pub async fn get_video_sources(
         .column_as(Expr::value(None::<i64>), "f_id")
         .column_as(Expr::value(None::<i64>), "s_id")
         .column_as(Expr::value(None::<i64>), "m_id")
-        .column_as(Expr::value(None::<String>), "season_id")
-        .column_as(Expr::value(None::<String>), "media_id")
         .into_tuple::<(
             i32,
             bool,
@@ -303,14 +301,12 @@ pub async fn get_video_sources(
             Option<i64>,
             Option<i64>,
             Option<i64>,
-            Option<String>,
-            Option<String>,
         )>()
         .all(db.as_ref())
         .await?
         .into_iter()
         .map(
-            |(id, enabled, path, scan_deleted_videos, download_danmaku, upper_id, name, f_id, s_id, m_id, season_id, media_id)| {
+            |(id, enabled, path, scan_deleted_videos, download_danmaku, upper_id, name, f_id, s_id, m_id)| {
                 VideoSource {
                     id,
                     name,
@@ -322,9 +318,6 @@ pub async fn get_video_sources(
                     s_id,
                     m_id,
                     upper_id: Some(upper_id),
-                    season_id,
-                    media_id,
-                    selected_seasons: None,
                 }
             },
         )
@@ -344,8 +337,6 @@ pub async fn get_video_sources(
         .column_as(Expr::value(None::<i64>), "s_id")
         .column_as(Expr::value(None::<i64>), "m_id")
         .column_as(Expr::value(None::<i64>), "upper_id")
-        .column_as(Expr::value(None::<String>), "season_id")
-        .column_as(Expr::value(None::<String>), "media_id")
         .into_tuple::<(
             i32,
             bool,
@@ -357,14 +348,12 @@ pub async fn get_video_sources(
             Option<i64>,
             Option<i64>,
             Option<i64>,
-            Option<String>,
-            Option<String>,
         )>()
         .all(db.as_ref())
         .await?
         .into_iter()
         .map(
-            |(id, enabled, path, scan_deleted_videos, download_danmaku, name, f_id, s_id, m_id, upper_id, season_id, media_id)| {
+            |(id, enabled, path, scan_deleted_videos, download_danmaku, name, f_id, s_id, m_id, upper_id)| {
                 VideoSource {
                     id,
                     name,
@@ -376,9 +365,6 @@ pub async fn get_video_sources(
                     s_id,
                     m_id,
                     upper_id,
-                    season_id,
-                    media_id,
-                    selected_seasons: None,
                 }
             },
         )
@@ -535,8 +521,6 @@ pub async fn get_videos(
                     video::Column::Category,
                     video::Column::DownloadStatus,
                     video::Column::Cover,
-                    video::Column::SeasonId,
-                    video::Column::SourceType,
                 ])
                 .into_tuple::<(
                     i32,
@@ -546,18 +530,16 @@ pub async fn get_videos(
                     i32,
                     u32,
                     String,
-                    Option<String>,
-                    Option<i32>,
                 )>()
                 .paginate(db.as_ref(), page_size)
                 .fetch_page(page)
                 .await?;
 
-            // 转换为VideoInfo并填充番剧标题
-            let mut videos: Vec<VideoInfo> = raw_videos
+            // 转换为VideoInfo
+            let videos: Vec<VideoInfo> = raw_videos
                 .iter()
                 .map(
-                    |(id, name, upper_name, path, category, download_status, cover, _season_id, _source_type)| {
+                    |(id, name, upper_name, path, category, download_status, cover)| {
                         VideoInfo::from((
                             *id,
                             name.clone(),
@@ -599,8 +581,6 @@ pub async fn get_video(
             video::Column::Category,
             video::Column::DownloadStatus,
             video::Column::Cover,
-            video::Column::SeasonId,
-            video::Column::SourceType,
         ])
         .into_tuple::<(
             i32,
@@ -610,13 +590,11 @@ pub async fn get_video(
             i32,
             u32,
             String,
-            Option<String>,
-            Option<i32>,
         )>()
         .one(db.as_ref())
         .await?;
 
-    let Some((_id, name, upper_name, path, category, download_status, cover, season_id, source_type)) = raw_video
+    let Some((_id, name, upper_name, path, category, download_status, cover)) = raw_video
     else {
         return Err(InnerApiError::NotFound(id).into());
     };
@@ -1070,21 +1048,15 @@ pub async fn reset_specific_tasks(
                     page_query_filter = page_query_filter.add(video::Column::Deleted.eq(0));
                 }
 
-                // 直接检查是否存在bangumi参数，单独处理
-                if let Some(id) = request.bangumi {
-                    page_query_filter =
-                        page_query_filter.add(video::Column::SourceId.eq(id).and(video::Column::SourceType.eq(1)));
-                } else {
-                    // 处理其他常规类型
-                    for (field, column) in [
-                        (request.collection, video::Column::CollectionId),
-                        (request.favorite, video::Column::FavoriteId),
-                        (request.submission, video::Column::SubmissionId),
-                        (request.watch_later, video::Column::WatchLaterId),
-                    ] {
-                        if let Some(id) = field {
-                            page_query_filter = page_query_filter.add(column.eq(id));
-                        }
+                // 处理常规类型
+                for (field, column) in [
+                    (request.collection, video::Column::CollectionId),
+                    (request.favorite, video::Column::FavoriteId),
+                    (request.submission, video::Column::SubmissionId),
+                    (request.watch_later, video::Column::WatchLaterId),
+                ] {
+                    if let Some(id) = field {
+                        page_query_filter = page_query_filter.add(column.eq(id));
                     }
                 }
 
@@ -1455,10 +1427,10 @@ pub async fn add_video_source(
             path: params.path.clone(),
             up_id: params.up_id.clone(),
             collection_type: params.collection_type.clone(),
-            media_id: params.media_id.clone(),
-            ep_id: params.ep_id.clone(),
-            download_all_seasons: params.download_all_seasons,
-            selected_seasons: params.selected_seasons.clone(),
+            media_id: None,
+            ep_id: None,
+            download_all_seasons: None,
+            selected_seasons: None,
             task_id: task_id.clone(),
         };
 
@@ -1688,307 +1660,6 @@ pub async fn add_video_source_internal(
                 source_id: insert_result.last_insert_id,
                 source_type: "submission".to_string(),
                 message: "UP主投稿添加成功".to_string(),
-            }
-        }
-        "bangumi" => {
-            // 验证至少有一个ID不为空
-            if params.source_id.is_empty() && params.media_id.is_none() && params.ep_id.is_none() {
-                return Err(anyhow!("番剧标识不能全部为空，请至少提供 season_id、media_id 或 ep_id 中的一个").into());
-            }
-
-            // 如果指定了合并目标，进行合并操作并提交事务
-            if let Some(merge_target_id) = params.merge_to_source_id {
-                let result = handle_bangumi_merge_to_existing(&txn, params, merge_target_id).await?;
-                txn.commit().await?;
-                return Ok(result);
-            }
-
-            // 检查是否已存在相同的番剧（Season ID完全匹配）
-            let existing_query = video_source::Entity::find().filter(video_source::Column::Type.eq(1)); // 番剧类型
-
-            // 1. 首先检查 Season ID 是否重复（精确匹配）
-            let mut existing_bangumi = None;
-
-            if !params.source_id.is_empty() {
-                // 如果有 season_id，检查是否已存在该 season_id
-                existing_bangumi = existing_query
-                    .clone()
-                    .filter(video_source::Column::SeasonId.eq(&params.source_id))
-                    .one(&txn)
-                    .await?;
-            }
-
-            if existing_bangumi.is_none() {
-                if let Some(ref media_id) = params.media_id {
-                    // 如果只有 media_id，检查是否已存在该 media_id
-                    existing_bangumi = existing_query
-                        .clone()
-                        .filter(video_source::Column::MediaId.eq(media_id))
-                        .one(&txn)
-                        .await?;
-                } else if let Some(ref ep_id) = params.ep_id {
-                    // 如果只有 ep_id，检查是否已存在该 ep_id
-                    existing_bangumi = existing_query
-                        .clone()
-                        .filter(video_source::Column::EpId.eq(ep_id))
-                        .one(&txn)
-                        .await?;
-                }
-            }
-
-            if let Some(mut existing) = existing_bangumi {
-                // 情况1：Season ID 重复 → 合并到现有番剧源
-                info!("检测到重复番剧 Season ID，执行智能合并: {}", existing.name);
-
-                let download_all_seasons = params.download_all_seasons.unwrap_or(false);
-                let mut updated = false;
-                let mut merge_message = String::new();
-
-                // 如果新请求要下载全部季度，直接更新现有配置
-                if download_all_seasons {
-                    if !existing.download_all_seasons.unwrap_or(false) {
-                        existing.download_all_seasons = Some(true);
-                        existing.selected_seasons = None; // 清空特定季度选择
-                        updated = true;
-                        merge_message = "已更新为下载全部季度".to_string();
-                    } else {
-                        merge_message = "已配置为下载全部季度，无需更改".to_string();
-                    }
-                } else {
-                    // 处理特定季度的合并
-                    if let Some(new_seasons) = params.selected_seasons {
-                        if !new_seasons.is_empty() {
-                            let mut current_seasons: Vec<String> = Vec::new();
-
-                            // 获取现有的季度选择
-                            if let Some(ref seasons_json) = existing.selected_seasons {
-                                if let Ok(seasons) = serde_json::from_str::<Vec<String>>(seasons_json) {
-                                    current_seasons = seasons;
-                                }
-                            }
-
-                            // 合并新的季度（去重）
-                            let mut all_seasons = current_seasons.clone();
-                            let mut added_seasons = Vec::new();
-
-                            for season in new_seasons {
-                                if !all_seasons.contains(&season) {
-                                    all_seasons.push(season.clone());
-                                    added_seasons.push(season);
-                                }
-                            }
-
-                            if !added_seasons.is_empty() {
-                                // 有新季度需要添加
-                                let seasons_json = serde_json::to_string(&all_seasons)?;
-                                existing.selected_seasons = Some(seasons_json);
-                                existing.download_all_seasons = Some(false); // 确保不是全部下载模式
-                                updated = true;
-
-                                merge_message = if added_seasons.len() == 1 {
-                                    format!("已添加新季度: {}", added_seasons.join(", "))
-                                } else {
-                                    format!("已添加 {} 个新季度: {}", added_seasons.len(), added_seasons.join(", "))
-                                };
-                            } else {
-                                // 所有季度都已存在
-                                merge_message = "所选季度已存在于现有配置中，无需更改".to_string();
-                            }
-                        }
-                    }
-                }
-
-                // 更新保存路径（如果提供了不同的路径）
-                if !params.path.is_empty() && params.path != existing.path {
-                    existing.path = params.path.clone();
-                    updated = true;
-
-                    if !merge_message.is_empty() {
-                        merge_message.push('，');
-                    }
-                    merge_message.push_str(&format!("保存路径已更新为: {}", params.path));
-                }
-
-                // 更新番剧名称（如果提供了不同的名称）
-                if !params.name.is_empty() && params.name != existing.name {
-                    existing.name = params.name.clone();
-                    updated = true;
-
-                    if !merge_message.is_empty() {
-                        merge_message.push('，');
-                    }
-                    merge_message.push_str(&format!("番剧名称已更新为: {}", params.name));
-                }
-
-                if updated {
-                    // 更新数据库记录 - 修复：正确使用ActiveModel更新
-                    let mut existing_update = video_source::ActiveModel {
-                        id: sea_orm::ActiveValue::Unchanged(existing.id),
-                        latest_row_at: sea_orm::Set(crate::utils::time_format::now_standard_string()),
-                        ..Default::default()
-                    };
-
-                    // 根据实际修改的字段设置对应的ActiveModel字段
-                    if download_all_seasons && !existing.download_all_seasons.unwrap_or(false) {
-                        // 切换到下载全部季度模式
-                        existing_update.download_all_seasons = sea_orm::Set(Some(true));
-                        existing_update.selected_seasons = sea_orm::Set(None); // 清空特定季度选择
-                    } else if !download_all_seasons {
-                        // 处理特定季度的合并或更新
-                        if let Some(ref new_seasons_json) = existing.selected_seasons {
-                            existing_update.selected_seasons = sea_orm::Set(Some(new_seasons_json.clone()));
-                            existing_update.download_all_seasons = sea_orm::Set(Some(false));
-                        }
-                    }
-
-                    // 更新路径（如果有变更）
-                    if !params.path.is_empty() && params.path != existing.path {
-                        existing_update.path = sea_orm::Set(params.path.clone());
-                    }
-
-                    // 更新名称（如果有变更）
-                    if !params.name.is_empty() && params.name != existing.name {
-                        existing_update.name = sea_orm::Set(params.name.clone());
-                    }
-
-                    video_source::Entity::update(existing_update).exec(&txn).await?;
-
-                    // 确保目标路径存在
-                    std::fs::create_dir_all(&existing.path).map_err(|e| anyhow!("创建目录失败: {}", e))?;
-
-                    info!("番剧配置合并成功: {}", merge_message);
-
-                    AddVideoSourceResponse {
-                        success: true,
-                        source_id: existing.id,
-                        source_type: "bangumi".to_string(),
-                        message: format!("番剧配置已成功合并！{}", merge_message),
-                    }
-                } else {
-                    // 没有实际更新
-                    AddVideoSourceResponse {
-                        success: true,
-                        source_id: existing.id,
-                        source_type: "bangumi".to_string(),
-                        message: format!("番剧已存在，{}", merge_message),
-                    }
-                }
-            } else {
-                // 情况2：Season ID 不重复，检查季度重复并跳过
-                let download_all_seasons = params.download_all_seasons.unwrap_or(false);
-                let mut final_selected_seasons = params.selected_seasons.clone();
-                let mut skipped_seasons = Vec::new();
-
-                // 如果不是下载全部季度，且指定了特定季度，则检查季度重复
-                if !download_all_seasons {
-                    if let Some(ref new_seasons) = params.selected_seasons {
-                        if !new_seasons.is_empty() {
-                            // 获取所有现有番剧源的已选季度
-                            let all_existing_sources = video_source::Entity::find()
-                                .filter(video_source::Column::Type.eq(1))
-                                .all(&txn)
-                                .await?;
-
-                            let mut all_existing_seasons = std::collections::HashSet::new();
-
-                            for source in all_existing_sources {
-                                // 如果该番剧源配置为下载全部季度，我们无法确定具体季度，跳过检查
-                                if source.download_all_seasons.unwrap_or(false) {
-                                    continue;
-                                }
-
-                                // 获取该番剧源的已选季度
-                                if let Some(ref seasons_json) = source.selected_seasons {
-                                    if let Ok(seasons) = serde_json::from_str::<Vec<String>>(seasons_json) {
-                                        for season in seasons {
-                                            all_existing_seasons.insert(season);
-                                        }
-                                    }
-                                }
-                            }
-
-                            // 过滤掉重复的季度
-                            let mut unique_seasons = Vec::new();
-                            for season in new_seasons {
-                                if all_existing_seasons.contains(season) {
-                                    skipped_seasons.push(season.clone());
-                                } else {
-                                    unique_seasons.push(season.clone());
-                                }
-                            }
-
-                            final_selected_seasons = Some(unique_seasons);
-                        }
-                    }
-                }
-
-                // 如果所有季度都被跳过了，返回错误
-                // 但是如果用户没有提供任何选择的季度，我们允许通过（用于单季度番剧的情况）
-                if !download_all_seasons && final_selected_seasons.as_ref().is_none_or(|s| s.is_empty()) {
-                    // 只有当用户明确选择了季度但这些季度都被跳过时才报错
-                    // 如果用户根本没有选择任何季度，我们允许通过（处理单季度番剧）
-                    if !skipped_seasons.is_empty() {
-                        let skipped_msg =
-                            format!("所选季度已在其他番剧源中存在，已跳过: {}", skipped_seasons.join(", "));
-                        return Err(anyhow!(
-                            "无法添加番剧：{}。请选择其他季度或使用'下载全部季度'选项。",
-                            skipped_msg
-                        )
-                        .into());
-                    }
-                    // 如果没有跳过的季度且没有选择的季度，说明是单季度番剧，允许通过
-                }
-
-                // 处理选中的季度
-                let selected_seasons_json = if !download_all_seasons && final_selected_seasons.is_some() {
-                    let seasons = final_selected_seasons.clone().unwrap();
-                    if seasons.is_empty() {
-                        None
-                    } else {
-                        Some(serde_json::to_string(&seasons)?)
-                    }
-                } else {
-                    None
-                };
-
-                let bangumi = video_source::ActiveModel {
-                    id: sea_orm::ActiveValue::NotSet,
-                    name: sea_orm::Set(params.name),
-                    path: sea_orm::Set(params.path.clone()),
-                    r#type: sea_orm::Set(1), // 1表示番剧类型
-                    latest_row_at: sea_orm::Set(crate::utils::time_format::now_standard_string()),
-                    created_at: sea_orm::Set(crate::utils::time_format::now_standard_string()),
-                    season_id: sea_orm::Set(Some(params.source_id.clone())),
-                    media_id: sea_orm::Set(params.media_id),
-                    ep_id: sea_orm::Set(params.ep_id),
-                    download_all_seasons: sea_orm::Set(Some(download_all_seasons)),
-                    selected_seasons: sea_orm::Set(selected_seasons_json),
-                    ..Default::default()
-                };
-
-                let insert_result = video_source::Entity::insert(bangumi).exec(&txn).await?;
-
-                // 确保目标路径存在
-                std::fs::create_dir_all(&params.path).map_err(|e| anyhow!("创建目录失败: {}", e))?;
-
-                let success_message = if !skipped_seasons.is_empty() {
-                    format!(
-                        "番剧添加成功！已跳过重复季度: {}，添加的季度: {}",
-                        skipped_seasons.join(", "),
-                        final_selected_seasons.unwrap_or_default().join(", ")
-                    )
-                } else {
-                    "番剧添加成功".to_string()
-                };
-
-                info!("新番剧添加完成: {}", success_message);
-
-                AddVideoSourceResponse {
-                    success: true,
-                    source_id: insert_result.last_insert_id,
-                    source_type: "bangumi".to_string(),
-                    message: success_message,
-                }
             }
         }
         "watch_later" => {
@@ -10112,163 +9783,3 @@ async fn get_collection_cover_from_api(
 }
 
 /// 处理番剧合并到现有源的逻辑
-async fn handle_bangumi_merge_to_existing(
-    txn: &sea_orm::DatabaseTransaction,
-    params: AddVideoSourceRequest,
-    merge_target_id: i32,
-) -> Result<AddVideoSourceResponse, ApiError> {
-    // 1. 查找目标番剧源
-    let mut target_source = video_source::Entity::find_by_id(merge_target_id)
-        .one(txn)
-        .await?
-        .ok_or_else(|| anyhow!("指定的目标番剧源不存在 (ID: {})", merge_target_id))?;
-
-    // 验证目标确实是番剧类型
-    if target_source.r#type != 1 {
-        return Err(anyhow!("指定的目标不是番剧源").into());
-    }
-
-    // 2. 准备合并操作
-    let download_all_seasons = params.download_all_seasons.unwrap_or(false);
-    let mut updated = false;
-    let mut merge_message = String::new();
-
-    // 3. 处理季度合并逻辑
-    if download_all_seasons {
-        // 新请求要下载全部季度
-        if !target_source.download_all_seasons.unwrap_or(false) {
-            target_source.download_all_seasons = Some(true);
-            target_source.selected_seasons = None; // 清空特定季度选择
-            updated = true;
-            merge_message = "已更新为下载全部季度".to_string();
-        } else {
-            merge_message = "目标番剧已配置为下载全部季度".to_string();
-        }
-    } else {
-        // 处理特定季度的合并
-        if let Some(new_seasons) = params.selected_seasons {
-            if !new_seasons.is_empty() {
-                let mut current_seasons: Vec<String> = Vec::new();
-
-                // 获取现有的季度选择
-                if let Some(ref seasons_json) = target_source.selected_seasons {
-                    if let Ok(seasons) = serde_json::from_str::<Vec<String>>(seasons_json) {
-                        current_seasons = seasons;
-                    }
-                }
-
-                // 合并新的季度（去重）
-                let mut all_seasons = current_seasons.clone();
-                let mut added_seasons = Vec::new();
-
-                for season in new_seasons {
-                    if !all_seasons.contains(&season) {
-                        all_seasons.push(season.clone());
-                        added_seasons.push(season);
-                    }
-                }
-
-                if !added_seasons.is_empty() {
-                    // 有新季度需要添加
-                    let seasons_json = serde_json::to_string(&all_seasons)?;
-                    target_source.selected_seasons = Some(seasons_json);
-                    target_source.download_all_seasons = Some(false); // 确保不是全部下载模式
-                    updated = true;
-
-                    merge_message = if added_seasons.len() == 1 {
-                        format!("已添加新季度: {}", added_seasons.join(", "))
-                    } else {
-                        format!("已添加 {} 个新季度: {}", added_seasons.len(), added_seasons.join(", "))
-                    };
-                } else {
-                    // 所有季度都已存在
-                    merge_message = "所选季度已存在于目标番剧中".to_string();
-                }
-            }
-        }
-    }
-
-    // 4. 更新保存路径（如果提供了不同的路径）
-    if !params.path.is_empty() && params.path != target_source.path {
-        target_source.path = params.path.clone();
-        updated = true;
-
-        if !merge_message.is_empty() {
-            merge_message.push('，');
-        }
-        merge_message.push_str(&format!("保存路径已更新为: {}", params.path));
-    }
-
-    // 5. 更新番剧名称（如果提供了不同的名称）
-    if !params.name.is_empty() && params.name != target_source.name {
-        target_source.name = params.name.clone();
-        updated = true;
-
-        if !merge_message.is_empty() {
-            merge_message.push('，');
-        }
-        merge_message.push_str(&format!("番剧名称已更新为: {}", params.name));
-    }
-
-    // 6. 更新数据库记录
-    if updated {
-        let mut target_update = video_source::ActiveModel {
-            id: sea_orm::ActiveValue::Unchanged(target_source.id),
-            latest_row_at: sea_orm::Set(crate::utils::time_format::now_standard_string()),
-            ..Default::default()
-        };
-
-        if download_all_seasons {
-            target_update.download_all_seasons = sea_orm::Set(Some(true));
-            target_update.selected_seasons = sea_orm::Set(None);
-        } else {
-            // 更新特定季度选择
-            if let Some(ref new_seasons_json) = target_source.selected_seasons {
-                target_update.selected_seasons = sea_orm::Set(Some(new_seasons_json.clone()));
-            }
-            target_update.download_all_seasons = sea_orm::Set(Some(false));
-        }
-
-        if !params.path.is_empty() && params.path != target_source.path {
-            target_update.path = sea_orm::Set(params.path);
-        }
-
-        if !params.name.is_empty() && params.name != target_source.name {
-            target_update.name = sea_orm::Set(params.name);
-        }
-
-        video_source::Entity::update(target_update)
-            .exec(txn)
-            .await?;
-
-        // 清除番剧缓存，强制重新扫描新合并的季度
-        let clear_cache_update = video_source::ActiveModel {
-            id: sea_orm::ActiveValue::Unchanged(target_source.id),
-            cached_episodes: sea_orm::Set(None),
-            cache_updated_at: sea_orm::Set(None),
-            ..Default::default()
-        };
-        if let Err(e) = video_source::Entity::update(clear_cache_update).exec(txn).await {
-            warn!("清除番剧缓存失败: {}", e);
-        } else {
-            info!("已清除番剧缓存，将在下次扫描时重新获取所有季度内容");
-        }
-
-        info!(
-            "番剧已成功合并到现有源: {} (ID: {}), 变更: {}",
-            target_source.name, target_source.id, merge_message
-        );
-    } else {
-        info!(
-            "番剧合并完成，无需更改: {} (ID: {})",
-            target_source.name, target_source.id
-        );
-    }
-
-    Ok(AddVideoSourceResponse {
-        success: true,
-        source_id: target_source.id,
-        source_type: "bangumi".to_string(),
-        message: format!("已成功合并到现有番剧源「{}」，{}", target_source.name, merge_message),
-    })
-}
