@@ -2775,7 +2775,8 @@ pub async fn download_page(
         ),
         generate_page_nfo(separate_status[2], video_model, &page_model, nfo_path, connection),
         fetch_page_danmaku(
-            separate_status[3] && video_source.download_danmaku(),
+            video_source.download_danmaku(),
+            separate_status[3],
             bili_client,
             video_model,
             &page_info,
@@ -3283,7 +3284,8 @@ pub async fn fetch_page_video(
 }
 
 pub async fn fetch_page_danmaku(
-    should_run: bool,
+    download_danmaku_enabled: bool,
+    task_status_requires_run: bool,
     bili_client: &BiliClient,
     video_model: &video::Model,
     page_info: &PageInfo,
@@ -3291,19 +3293,39 @@ pub async fn fetch_page_danmaku(
     token: CancellationToken,
 ) -> Result<ExecutionStatus> {
     // 如果弹幕下载已关闭,检查并删除已存在的弹幕文件
-    if !should_run {
+    if !download_danmaku_enabled {
         if danmaku_path.exists() {
             if let Err(e) = tokio::fs::remove_file(&danmaku_path).await {
-                warn!("删除弹幕文件失败: {:?}, 错误: {}", danmaku_path, e);
+                warn!(
+                    "删除弹幕文件失败: 视频「{}」, 路径: {:?}, 错误: {}",
+                    &video_model.name, danmaku_path, e
+                );
             } else {
-                info!("已删除弹幕文件: {:?}", danmaku_path);
+                info!(
+                    "弹幕已关闭，已删除弹幕文件: 视频「{}」, 路径: {:?}",
+                    &video_model.name, danmaku_path
+                );
             }
+        } else {
+            debug!(
+                "弹幕已关闭，无需删除: 视频「{}」, 弹幕文件不存在",
+                &video_model.name
+            );
         }
         return Ok(ExecutionStatus::Skipped);
     }
 
-    // 如果弹幕文件已存在,跳过下载
+    // 弹幕已开启，检查是否需要下载
     if danmaku_path.exists() {
+        debug!(
+            "弹幕文件已存在，跳过下载: 视频「{}」, 路径: {:?}",
+            &video_model.name, danmaku_path
+        );
+        return Ok(ExecutionStatus::Skipped);
+    }
+
+    // 如果任务状态不需要运行(已完成),跳过
+    if !task_status_requires_run {
         return Ok(ExecutionStatus::Skipped);
     }
 
