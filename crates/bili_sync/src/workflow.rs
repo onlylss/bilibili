@@ -1052,6 +1052,10 @@ pub async fn download_video_pages(
         }
     };
 
+    // 获取视频源基础路径
+    let video_source_base_path = video_source.video_path();
+
+    let path = {
             // 其他类型的视频源使用原来的逻辑
             let base_folder_name = crate::config::with_config(|bundle| {
                 bundle.render_video_template(&video_format_args(&final_video_model))
@@ -1087,20 +1091,19 @@ pub async fn download_video_pages(
             }
         };
 
-        // 检查是否为多P视频且启用了Season结构
-        let config = crate::config::reload_config();
-        let is_single_page = final_video_model.single_page.unwrap_or(true);
+    // 检查是否为多P视频且启用了Season结构
+    let config = crate::config::reload_config();
+    let is_single_page = final_video_model.single_page.unwrap_or(true);
 
-        if (!is_single_page && config.multi_page_use_season_structure)
-            || (is_collection && config.collection_use_season_structure)
-        {
-            // 为多P视频或合集创建Season文件夹结构
-            let season_folder_name = "Season 01".to_string();
-            let season_path = path.join(&season_folder_name);
-            (season_path, Some(season_folder_name), Some(path))
-        } else {
-            (path, None, None)
-        }
+    let (base_path, season_folder, _season_root) = if (!is_single_page && config.multi_page_use_season_structure)
+        || (is_collection && config.collection_use_season_structure)
+    {
+        // 为多P视频或合集创建Season文件夹结构
+        let season_folder_name = "Season 01".to_string();
+        let season_path = path.join(&season_folder_name);
+        (season_path, Some(season_folder_name), Some(path))
+    } else {
+        (path, None, None)
     };
 
     // 延迟创建季度文件夹，只在实际需要写入文件时创建
