@@ -3386,16 +3386,18 @@ pub async fn fetch_page_danmaku(
 }
 
 /// 检查视频源是否有弹幕文件需要处理（删除或下载）
-/// 当发现缺失的弹幕文件时，会自动重置对应页面的弹幕下载状态
+/// 当发现缺失的弹幕文件时，会自动重置对应页面和视频的弹幕下载状态
 async fn check_danmaku_work_needed(
     video_source: &VideoSourceEnum,
     connection: &DatabaseConnection,
 ) -> Result<bool> {
     use sea_orm::{EntityTrait, ActiveModelTrait, Set};
+    use std::collections::HashSet;
 
     let download_danmaku_enabled = video_source.download_danmaku();
     let mut has_work = false;
     let mut pages_to_reset = Vec::new();
+    let mut videos_to_reset = HashSet::new(); // 记录需要重置的视频ID
 
     // 查询该视频源的所有视频及其页面
     let videos = entities::video::Entity::find()
@@ -3409,6 +3411,8 @@ async fn check_danmaku_work_needed(
             .all(connection)
             .await?;
 
+        let mut video_has_danmaku_work = false;
+
         for page_model in pages {
             if let Some(video_path_str) = &page_model.path {
                 let video_path = std::path::Path::new(video_path_str);
@@ -3420,31 +3424,39 @@ async fn check_danmaku_work_needed(
                             // 弹幕开启：检查是否有缺失的弹幕文件
                             if !danmaku_path.exists() {
                                 has_work = true;
+                                video_has_danmaku_work = true;
                                 // 收集需要重置弹幕状态的页面
-                                pages_to_reset.push((page_model.id, page_model.download_status));
+                                pages_to_reset.push((page_model.id, page_model.video_id, page_model.download_status));
                             }
                         } else {
                             // 弹幕关闭：检查是否有需要删除的弹幕文件
                             if danmaku_path.exists() {
                                 has_work = true;
+                                video_has_danmaku_work = true;
                                 // 收集需要重置弹幕状态的页面
-                                pages_to_reset.push((page_model.id, page_model.download_status));
+                                pages_to_reset.push((page_model.id, page_model.video_id, page_model.download_status));
                             }
                         }
                     }
                 }
             }
         }
+
+        // 如果这个视频有弹幕工作需要做，标记需要重置视频状态
+        if video_has_danmaku_work {
+            videos_to_reset.insert((video_model.id, video_model.download_status));
+        }
     }
 
     // 如果有需要处理的页面，重置它们的弹幕下载状态
     if !pages_to_reset.is_empty() {
-        use crate::utils::status::PageStatus;
+        use crate::utils::status::{PageStatus, VideoStatus};
 
         let pages_count = pages_to_reset.len();
         info!("发现 {} 个页面的弹幕文件需要处理，正在重置弹幕下载状态...", pages_count);
 
-        for (page_id, download_status) in pages_to_reset {
+        // 重置页面状态
+        for (page_id, _video_id, download_status) in pages_to_reset {
             let mut page_status = PageStatus::from(download_status);
             // 重置弹幕下载状态（索引3对应弹幕）
             page_status.set(3, 0);
@@ -3460,6 +3472,28 @@ async fn check_danmaku_work_needed(
         }
 
         info!("已重置 {} 个页面的弹幕下载状态", pages_count);
+
+        // 重置视频状态（清除完成标记，让视频重新进入处理流程）
+        let videos_count = videos_to_reset.len();
+        if videos_count > 0 {
+            info!("正在重置 {} 个视频的下载状态以触发弹幕下载...", videos_count);
+
+            for (video_id, download_status) in videos_to_reset {
+                let mut video_status = VideoStatus::from(download_status);
+                // 清除完成标记，让视频状态变为未完成
+                video_status.set(4, 0); // 索引4对应"分P下载"任务
+
+                entities::video::ActiveModel {
+                    id: Set(video_id),
+                    download_status: Set(video_status.into()),
+                    ..Default::default()
+                }
+                .update(connection)
+                .await?;
+            }
+
+            info!("已重置 {} 个视频的下载状态", videos_count);
+        }
     }
 
     Ok(has_work)
