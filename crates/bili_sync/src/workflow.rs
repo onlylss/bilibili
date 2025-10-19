@@ -3311,7 +3311,7 @@ pub async fn fetch_page_danmaku(
                     &video_model.name, danmaku_path, e
                 );
             } else {
-                info!(
+                debug!(
                     "弹幕已关闭，已删除弹幕文件: 视频「{}」, 路径: {:?}",
                     &video_model.name, danmaku_path
                 );
