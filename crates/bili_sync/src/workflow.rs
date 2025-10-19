@@ -3440,7 +3440,7 @@ async fn cleanup_danmaku_files(
 ) -> Result<()> {
     use sea_orm::EntityTrait;
 
-    let source_name = video_source.name();
+    let source_name = video_source.source_name_display();
     info!("开始清理视频源「{}」的弹幕文件...", source_name);
 
     // 查询该视频源的所有视频及其页面
