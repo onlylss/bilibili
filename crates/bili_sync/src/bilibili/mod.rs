@@ -200,3 +200,29 @@ pub enum VideoInfo {
         actors: Option<String>,
     },
 }
+
+impl VideoInfo {
+    /// 获取视频标题
+    pub fn title(&self) -> &str {
+        match self {
+            VideoInfo::Detail { title, .. } => title,
+            VideoInfo::Favorite { title, .. } => title,
+            VideoInfo::WatchLater { title, .. } => title,
+            VideoInfo::Collection { title, .. } => title,
+            VideoInfo::Submission { title, .. } => title,
+            VideoInfo::Bangumi { title, .. } => title,
+        }
+    }
+
+    /// 获取创建时间
+    pub fn ctime(&self) -> DateTime<Utc> {
+        match self {
+            VideoInfo::Detail { ctime, .. } => *ctime,
+            VideoInfo::Favorite { ctime, .. } => *ctime,
+            VideoInfo::WatchLater { ctime, .. } => *ctime,
+            VideoInfo::Collection { ctime, .. } => *ctime,
+            VideoInfo::Submission { ctime, .. } => *ctime,
+            VideoInfo::Bangumi { pubtime, .. } => *pubtime, // Bangumi 使用 pubtime 作为 ctime
+        }
+    }
+}

@@ -9,6 +9,7 @@ use std::collections::HashMap;
 use std::sync::RwLock;
 use std::time::Duration;
 use tracing::{debug, info, warn};
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
 use crate::bilibili::credential::encoded_query;
 use crate::bilibili::favorite_list::Upper;
@@ -102,9 +103,8 @@ impl<'a> Submission<'a> {
 
             // 获取latest_row_at用于增量扫描
             let latest_row_at = if config.enable_incremental_fetch {
-                if let Ok(Some(db)) = get_global_db() {
+                if let Some(db) = get_global_db() {
                     use bili_sync_entity::submission;
-                    use sea_orm::EntityTrait;
 
                     submission::Entity::find()
                         .filter(submission::Column::UpperId.eq(self.upper_id.parse::<i64>().unwrap_or(0)))
@@ -283,15 +283,13 @@ impl<'a> Submission<'a> {
                     if page > 1 {
                         if let Some(ref latest_row_at_str) = latest_row_at {
                             let beijing_tz = crate::utils::time_format::beijing_timezone();
-                            let video_time = chrono::DateTime::from_timestamp(video_info.created as i64, 0)
-                                .unwrap_or_default()
-                                .with_timezone(&beijing_tz);
+                            let video_time = video_info.ctime().with_timezone(&beijing_tz);
                             let video_time_str = video_time.format("%Y-%m-%d %H:%M:%S").to_string();
 
                             if video_time_str.as_str() <= latest_row_at_str.as_str() {
                                 consecutive_old_videos += 1;
                                 debug!("检测到旧视频({}/3): {}, 发布时间 {} <= 上次扫描 {}",
-                                    consecutive_old_videos, video_info.title, video_time_str, latest_row_at_str);
+                                    consecutive_old_videos, video_info.title(), video_time_str, latest_row_at_str);
 
                                 // 连续3个旧视频，终止扫描
                                 if consecutive_old_videos >= 3 {
