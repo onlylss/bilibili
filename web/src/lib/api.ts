@@ -39,7 +39,6 @@ import type {
 	DashBoardResponse,
 	SysInfo,
 	TaskStatus,
-	BangumiSeasonsResponse,
 	VideoBvidResponse
 } from './types';
 import { ErrorType } from './types';
