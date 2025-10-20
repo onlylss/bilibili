@@ -30,7 +30,7 @@ pub fn page_format_args(
     let is_single_page = video_model.single_page.unwrap_or(true);
 
     if !is_single_page {
-        // 对于多P视频（非番剧），使用番剧格式的命名，默认季度为1
+        // 对于多P视频，使用剧集格式的命名，默认季度为1
         let season_number = 1;
 
         // 从发布时间提取年份

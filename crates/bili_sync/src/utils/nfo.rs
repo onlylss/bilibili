@@ -38,7 +38,7 @@ pub struct Movie<'a> {
     pub duration: Option<i32>,       // 视频时长（分钟）
     pub view_count: Option<i64>,     // 播放量
     pub like_count: Option<i64>,     // 点赞数
-    pub category: i32,               // 视频分类（用于番剧检测）
+    pub category: i32,               // 视频分类
     pub tagline: Option<String>,     // 标语/副标题（从share_copy提取）
     pub set: Option<String>,         // 系列名称
     pub sorttitle: Option<String>,   // 排序标题
@@ -70,7 +70,7 @@ pub struct TVShow<'a> {
     pub view_count: Option<i64>,
     pub like_count: Option<i64>,
     #[allow(dead_code)]
-    pub category: i32,               // 视频分类（用于番剧检测）
+    pub category: i32,               // 视频分类
     pub tagline: Option<String>,     // 标语/副标题（从share_copy提取）
     pub set: Option<String>,         // 系列名称
     pub sorttitle: Option<String>,   // 排序标题
@@ -78,7 +78,7 @@ pub struct TVShow<'a> {
     pub cover_url: &'a str,          // 封面图片URL
     pub fanart_url: Option<&'a str>, // 背景图片URL
     pub upper_face_url: Option<&'a str>, // UP主头像URL（用于演员thumb）
-    pub season_id: Option<String>,   // 番剧季度ID（从API获取）
+    pub season_id: Option<String>,   // 季度ID（从API获取）
     pub media_id: Option<i64>,       // 媒体ID（从API获取）
 }
 
@@ -102,7 +102,7 @@ pub struct Episode<'a> {
     pub director: Option<&'a str>,
     pub credits: Option<&'a str>,
     pub bvid: &'a str,               // B站视频ID
-    pub category: i32,               // 视频分类（用于番剧检测）
+    pub category: i32,               // 视频分类
     pub mpaa: Option<&'a str>,       // 年龄分级
     pub country: Option<&'a str>,    // 国家
     pub studio: Option<&'a str>,     // 制作工作室
@@ -140,7 +140,7 @@ pub struct Season<'a> {
     pub cover_url: &'a str,          // 封面图片URL
     pub fanart_url: Option<&'a str>, // 背景图片URL
     pub upper_face_url: Option<&'a str>, // UP主头像URL（用于演员thumb）
-    pub season_id: Option<String>,   // 番剧季度ID
+    pub season_id: Option<String>,   // 季度ID
     pub media_id: Option<i64>,       // 媒体ID
 }
 
@@ -193,16 +193,8 @@ impl NFO<'_> {
             .create_element("movie")
             .write_inner_content_async::<_, _, Error>(|writer| async move {
                 // 标题信息
-                let (display_title, original_title) = if Self::is_bangumi_video(movie.category) {
-                    // 对于番剧，尝试提取番剧名称作为主标题
-                    if let Some(bangumi_title) = Self::extract_bangumi_title_from_full_name(movie.name) {
-                        (bangumi_title, movie.name.to_string())
-                    } else {
-                        (movie.name.to_string(), movie.original_title.to_string())
-                    }
-                } else {
-                    (movie.name.to_string(), movie.original_title.to_string())
-                };
+                let display_title = movie.name.to_string();
+                let original_title = movie.original_title.to_string();
 
                 writer
                     .create_element("title")
@@ -288,18 +280,6 @@ impl NFO<'_> {
                             .write_text_content_async(BytesText::new(&tag))
                             .await?;
                     }
-                }
-
-                // 为番剧剧场版添加默认类型标签
-                if Self::is_bangumi_video(movie.category) {
-                    writer
-                        .create_element("genre")
-                        .write_text_content_async(BytesText::new("动画"))
-                        .await?;
-                    writer
-                        .create_element("genre")
-                        .write_text_content_async(BytesText::new("剧场版"))
-                        .await?;
                 }
 
                 // 国家信息
@@ -563,7 +543,7 @@ impl NFO<'_> {
                     .write_text_content_async(BytesText::new(tvshow.bvid))
                     .await?;
 
-                // 添加番剧季度ID作为额外的uniqueid
+                // 添加季度ID作为额外的uniqueid
                 if let Some(ref season_id) = tvshow.season_id {
                     writer
                         .create_element("uniqueid")
@@ -875,14 +855,6 @@ async fn write_upper_nfo(mut writer: Writer<&mut BufWriter<&mut Vec<u8>>>, upper
                     }
                 }
 
-                // 为番剧添加默认类型标签
-                if Self::is_bangumi_video(episode.category) {
-                    writer
-                        .create_element("genre")
-                        .write_text_content_async(BytesText::new("动画"))
-                        .await?;
-                }
-
                 // 国家信息
                 if let Some(country) = episode.country {
                     writer
@@ -903,7 +875,7 @@ async fn write_upper_nfo(mut writer: Writer<&mut BufWriter<&mut Vec<u8>>>, upper
                         .write_text_content_async(BytesText::new(mpaa))
                         .await?;
                 } else {
-                    // 番剧默认分级为PG
+                    // 默认分级为PG
                     writer
                         .create_element("mpaa")
                         .write_text_content_async(BytesText::new("PG"))
@@ -1002,19 +974,9 @@ async fn write_upper_nfo(mut writer: Writer<&mut BufWriter<&mut Vec<u8>>>, upper
         writer
             .create_element("season")
             .write_inner_content_async::<_, _, Error>(|writer| async move {
-                // 标题信息 - 根据Emby标准，Season应该显示纯季度标题（如"第二季"）
-                let (display_title, original_title) = if Self::is_bangumi_video(season.category) {
-                    // 尝试提取纯季度标题
-                    if let Some(season_title) = Self::extract_season_title_from_full_name(season.name) {
-                        (season_title, season.name.to_string())
-                    } else {
-                        // 如果提取失败，使用完整名称
-                        (season.name.to_string(), season.original_title.to_string())
-                    }
-                } else {
-                    // 非番剧使用完整名称
-                    (season.name.to_string(), season.original_title.to_string())
-                };
+                // 标题信息
+                let display_title = season.name.to_string();
+                let original_title = season.original_title.to_string();
 
                 writer
                     .create_element("title")
@@ -1067,16 +1029,8 @@ async fn write_upper_nfo(mut writer: Writer<&mut BufWriter<&mut Vec<u8>>>, upper
                         .await?;
                 }
 
-                // 剧情简介 - 为Season添加季度特定的前缀
-                let season_plot = if Self::is_bangumi_video(season.category) {
-                    if let Some(season_title) = Self::extract_season_title_from_full_name(season.name) {
-                        format!("【{}】{}", season_title, Self::format_plot(season.bvid, season.intro))
-                    } else {
-                        Self::format_plot(season.bvid, season.intro)
-                    }
-                } else {
-                    Self::format_plot(season.bvid, season.intro)
-                };
+                // 剧情简介
+                let season_plot = Self::format_plot(season.bvid, season.intro);
                 writer
                     .create_element("plot")
                     .write_cdata_content_async(BytesCData::new(season_plot))
@@ -1107,7 +1061,7 @@ async fn write_upper_nfo(mut writer: Writer<&mut BufWriter<&mut Vec<u8>>>, upper
                     .write_text_content_async(BytesText::new(season.bvid))
                     .await?;
 
-                // 添加番剧季度ID作为额外的uniqueid
+                // 添加季度ID作为额外的uniqueid
                 if let Some(ref season_id) = season.season_id {
                     writer
                         .create_element("uniqueid")
@@ -1312,91 +1266,10 @@ async fn write_upper_nfo(mut writer: Writer<&mut BufWriter<&mut Vec<u8>>>, upper
         )
     }
 
-    /// 检测是否为番剧视频（基于 category 字段）
-    fn is_bangumi_video(category: i32) -> bool {
-        category == 1
-    }
-
-    /// 从完整标题中提取纯季度标题（如"第二季"）
-    fn extract_season_title_from_full_name(full_name: &str) -> Option<String> {
-        // 匹配 "番剧名称第X季" 格式，提取季度部分
-        let pattern = regex::Regex::new(r".+?(第[一二三四五六七八九十\d]+季)").unwrap();
-        if let Some(caps) = pattern.captures(full_name) {
-            return Some(caps[1].to_string());
-        }
-        None
-    }
-
-    /// 从完整标题中提取番剧名称
-    fn extract_bangumi_title_from_full_name(full_name: &str) -> Option<String> {
-        // 匹配 "《番剧名称》第X话/集 副标题" 格式
-        let pattern1 = regex::Regex::new(r"《([^》]+)》").unwrap();
-        if let Some(caps) = pattern1.captures(full_name) {
-            return Some(caps[1].to_string());
-        }
-
-        // 匹配 "番剧名称 第X话/集" 格式
-        let pattern2 = regex::Regex::new(r"^([^第]+)\s*第\d+[话集]").unwrap();
-        if let Some(caps) = pattern2.captures(full_name) {
-            return Some(caps[1].trim().to_string());
-        }
-
-        // 匹配番剧标题后跟描述性文本（如"柯南剧场版开山之作"）
-        let pattern3 = regex::Regex::new(r"《([^》]+)》(.+)").unwrap();
-        if let Some(caps) = pattern3.captures(full_name) {
-            let title = caps[1].trim();
-            let subtitle = caps[2].trim();
-            // 如果副标题不是集数信息，则只返回主标题
-            if !subtitle.contains("第") && !subtitle.contains("话") && !subtitle.contains("集") {
-                return Some(title.to_string());
-            }
-        }
-
-        // 匹配 "番剧名称第X季" 格式，用于TVShow标题清理
-        let pattern4 = regex::Regex::new(r"^(.+?)第[一二三四五六七八九十\d]+季$").unwrap();
-        if let Some(caps) = pattern4.captures(full_name) {
-            return Some(caps[1].trim().to_string());
-        }
-
-        None
-    }
-
-    /// 计算番剧的实际总季数
-    /// 通过分析番剧标题中的季度信息来推断总季数
-    #[allow(dead_code)]
-    fn calculate_total_seasons_from_title(title: &str) -> i32 {
-        // 如果标题包含季度信息，尝试提取季度数字
-        if let Some(season_match) = regex::Regex::new(r"第([一二三四五六七八九十\d]+)季")
-            .unwrap()
-            .captures(title)
-        {
-            let season_str = &season_match[1];
-
-            // 处理中文数字转换并返回当前检测到的季度作为总季数的估计
-            // 这是基于标题的最佳猜测
-            match season_str {
-                "一" => 1,
-                "二" => 2,
-                "三" => 3,
-                "四" => 4,
-                "五" => 5,
-                "六" => 6,
-                "七" => 7,
-                "八" => 8,
-                "九" => 9,
-                "十" => 10,
-                _ => season_str.parse::<i32>().unwrap_or(1),
-            }
-        } else {
-            // 没有季度信息，假设为单季
-            1
-        }
-    }
-
     /// 从share_copy或标题中提取副标题信息
     #[allow(dead_code)]
     fn extract_subtitle_from_share_copy(share_copy: &str) -> Option<String> {
-        // 匹配 "《番剧名称》副标题" 格式，提取副标题
+        // 匹配标题和副标题格式，提取副标题
         let pattern = regex::Regex::new(r"《[^》]+》\s*(.+)").unwrap();
         if let Some(caps) = pattern.captures(share_copy) {
             let subtitle = caps[1].trim();
@@ -1538,33 +1411,9 @@ impl<'a> From<&'a video::Model> for Movie<'a> {
         // 提取标语/副标题
         let tagline = None;
 
-        // 生成排序标题（去除特殊字符，便于排序）
-        let sorttitle = Some({
-            // 对于番剧，使用提取的系列名称；否则使用原标题
-            if NFO::is_bangumi_video(video.category) {
-                if let Some(bangumi_title) = NFO::extract_bangumi_title_from_full_name(nfo_title) {
-                    bangumi_title
-                } else {
-                    // 如果提取失败，手动清理标题
-                    nfo_title
-                        .replace("《", "")
-                        .replace("》", "")
-                        .split_whitespace()
-                        .next()
-                        .unwrap_or(nfo_title)
-                        .to_string()
-                }
-            } else {
-                nfo_title.to_string()
-            }
-        });
-
-        // 对于番剧，尝试提取系列名称
-        let set_name = if NFO::is_bangumi_video(video.category) {
-            NFO::extract_bangumi_title_from_full_name(nfo_title)
-        } else {
-            None
-        };
+        // 生成排序标题
+        let sorttitle = Some(nfo_title.to_string());
+        let set_name = None;
 
         Self {
             name: nfo_title,
@@ -1616,33 +1465,9 @@ impl<'a> From<&'a video::Model> for TVShow<'a> {
         // 提取标语/副标题
         let tagline = None;
 
-        // 生成排序标题（去除特殊字符，便于排序）
-        let sorttitle = Some({
-            // 对于番剧，使用提取的系列名称；否则使用原标题
-            if NFO::is_bangumi_video(video.category) {
-                if let Some(bangumi_title) = NFO::extract_bangumi_title_from_full_name(nfo_title) {
-                    bangumi_title
-                } else {
-                    // 如果提取失败，手动清理标题
-                    nfo_title
-                        .replace("《", "")
-                        .replace("》", "")
-                        .split_whitespace()
-                        .next()
-                        .unwrap_or(nfo_title)
-                        .to_string()
-                }
-            } else {
-                nfo_title.to_string()
-            }
-        });
-
-        // 对于番剧，尝试提取系列名称
-        let set_name = if NFO::is_bangumi_video(video.category) {
-            NFO::extract_bangumi_title_from_full_name(nfo_title)
-        } else {
-            None
-        };
+        // 生成排序标题
+        let sorttitle = Some(nfo_title.to_string());
+        let set_name = None;
 
         Self {
             name: nfo_title,
@@ -1737,7 +1562,7 @@ impl<'a> TVShow<'a> {
             tvshow.duration = Some(total_duration_minutes);
         }
 
-        // 对于番剧，total_episodes应该是整个季的集数，而不是当前页面数
+        // total_episodes应该是整个季的集数，而不是当前页面数
         // 这里暂时设为None，避免显示错误的"1集"信息
         tvshow.total_episodes = None;
 
@@ -1829,33 +1654,9 @@ impl<'a> From<&'a video::Model> for Season<'a> {
         // 提取标语/副标题
         let tagline = None;
 
-        // 生成排序标题（去除特殊字符，便于排序）
-        let sorttitle = Some({
-            // 对于番剧，使用提取的系列名称；否则使用原标题
-            if NFO::is_bangumi_video(video.category) {
-                if let Some(bangumi_title) = NFO::extract_bangumi_title_from_full_name(nfo_title) {
-                    bangumi_title
-                } else {
-                    // 如果提取失败，手动清理标题
-                    nfo_title
-                        .replace("《", "")
-                        .replace("》", "")
-                        .split_whitespace()
-                        .next()
-                        .unwrap_or(nfo_title)
-                        .to_string()
-                }
-            } else {
-                nfo_title.to_string()
-            }
-        });
-
-        // 对于番剧，尝试提取系列名称
-        let set_name = if NFO::is_bangumi_video(video.category) {
-            NFO::extract_bangumi_title_from_full_name(nfo_title)
-        } else {
-            None
-        };
+        // 生成排序标题
+        let sorttitle = Some(nfo_title.to_string());
+        let set_name = None;
 
         Self {
             name: nfo_title,

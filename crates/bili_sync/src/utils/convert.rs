@@ -188,7 +188,7 @@ impl VideoInfo {
                 ..
             } => bili_sync_entity::video::ActiveModel {
                 bvid: Set(bvid),
-                // 如果原始model的name字段包含"第"并且看起来像番剧的show_title格式，则保留原来的name
+                // 如果原始model的name字段包含"第"并且看起来像剧集的show_title格式，则保留原来的name
                 // 否则优先使用show_title，如果show_title为空则使用title
                 name: if base_model.name.contains("第")
                     && (base_model.name.contains("话") || base_model.name.contains("集"))

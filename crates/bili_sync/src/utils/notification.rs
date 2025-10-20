@@ -215,7 +215,6 @@ impl NotificationClient {
                         "合集" => "📁",
                         "UP主投稿" => "🎯",
                         "稍后再看" => "⏰",
-                        "番剧" => "📺",
                         _ => "📄",
                     };
 
@@ -230,20 +229,14 @@ impl NotificationClient {
                         source_result.new_videos.len()
                     ));
 
-                    // 按照视频类型进行排序
+                    // 按发布时间降序排列（最新的在前）
                     let mut sorted_videos = source_result.new_videos.clone();
-                    if source_result.source_type == "番剧" {
-                        // 番剧按集数降序排列（最新的集数在前）
-                        sorted_videos.sort_by(|a, b| b.episode_number.unwrap_or(0).cmp(&a.episode_number.unwrap_or(0)));
-                    } else {
-                        // 其他视频按发布时间降序排列（最新的在前）
-                        sorted_videos.sort_by(|a, b| {
-                            b.pubtime
-                                .as_ref()
-                                .unwrap_or(&String::new())
-                                .cmp(a.pubtime.as_ref().unwrap_or(&String::new()))
-                        });
-                    }
+                    sorted_videos.sort_by(|a, b| {
+                        b.pubtime
+                            .as_ref()
+                            .unwrap_or(&String::new())
+                            .cmp(a.pubtime.as_ref().unwrap_or(&String::new()))
+                    });
 
                     // 限制每个源显示的视频数量
                     let max_videos_per_source = 20;
@@ -266,18 +259,8 @@ impl NotificationClient {
                         let mut video_line =
                             format!("- [{}](https://www.bilibili.com/video/{})", clean_title, video.bvid);
 
-                        // 添加额外信息
-                        if source_result.source_type == "番剧" && video.episode_number.is_some() {
-                            video_line.push_str(&format!(" (第{}集", video.episode_number.unwrap()));
-                            // 番剧也显示时间戳
-                            if let Some(pubtime) = &video.pubtime {
-                                // 只显示日期部分，不显示时间
-                                if let Some(date_part) = pubtime.split(' ').next() {
-                                    video_line.push_str(&format!(", {}", date_part));
-                                }
-                            }
-                            video_line.push(')');
-                        } else if let Some(pubtime) = &video.pubtime {
+                        // 添加发布时间信息
+                        if let Some(pubtime) = &video.pubtime {
                             // 只显示日期部分，不显示时间
                             if let Some(date_part) = pubtime.split(' ').next() {
                                 video_line.push_str(&format!(" ({})", date_part));
