@@ -1808,7 +1808,7 @@ pub async fn download_video_pages(
         // 对于合集，只在第一个视频时生成tvshow.nfo，避免重复生成
         let should_generate_nfo = if is_bangumi {
             // 番剧：只有在文件不存在时才生成，放在番剧文件夹根目录
-            separate_status[2] && bangumi_folder_path.is_some() && should_download_bangumi_nfo
+            false // 已禁用NFO生成
         } else if is_collection {
             // 合集：只有第一个视频时生成tvshow.nfo
             let config = crate::config::reload_config();
