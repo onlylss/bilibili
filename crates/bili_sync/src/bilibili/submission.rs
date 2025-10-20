@@ -279,27 +279,25 @@ impl<'a> Submission<'a> {
                         return;
                     }
 
-                    // 增量扫描提前终止检查（从第2页开始检查，避免第一页的异常情况）
-                    if page > 1 {
-                        if let Some(ref latest_row_at_str) = latest_row_at {
-                            let beijing_tz = crate::utils::time_format::beijing_timezone();
-                            let video_time = video_info.ctime().with_timezone(&beijing_tz);
-                            let video_time_str = video_time.format("%Y-%m-%d %H:%M:%S").to_string();
+                    // 增量扫描提前终止检查
+                    if let Some(ref latest_row_at_str) = latest_row_at {
+                        let beijing_tz = crate::utils::time_format::beijing_timezone();
+                        let video_time = video_info.ctime().with_timezone(&beijing_tz);
+                        let video_time_str = video_time.format("%Y-%m-%d %H:%M:%S").to_string();
 
-                            if video_time_str.as_str() <= latest_row_at_str.as_str() {
-                                consecutive_old_videos += 1;
-                                debug!("检测到旧视频({}/3): {}, 发布时间 {} <= 上次扫描 {}",
-                                    consecutive_old_videos, video_info.title(), video_time_str, latest_row_at_str);
+                        if video_time_str.as_str() <= latest_row_at_str.as_str() {
+                            consecutive_old_videos += 1;
+                            debug!("检测到旧视频({}/3): {}, 发布时间 {} <= 上次扫描 {}",
+                                consecutive_old_videos, video_info.title(), video_time_str, latest_row_at_str);
 
-                                // 连续3个旧视频，终止扫描
-                                if consecutive_old_videos >= 3 {
-                                    info!("UP主 {} 增量扫描：连续检测到3个旧视频，停止扫描（第{}页）",
-                                        self.display_name(), page);
-                                    return;
-                                }
-                            } else {
-                                consecutive_old_videos = 0;  // 重置计数器
+                            // 连续3个旧视频，终止扫描
+                            if consecutive_old_videos >= 3 {
+                                info!("UP主 {} 增量扫描：连续检测到3个旧视频，停止扫描（第{}页第{}个视频）",
+                                    self.display_name(), page, video_index + 1);
+                                return;
                             }
+                        } else {
+                            consecutive_old_videos = 0;  // 重置计数器
                         }
                     }
 
