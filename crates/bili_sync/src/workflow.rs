@@ -212,15 +212,15 @@ pub async fn refresh_video_source<'a>(
         // 获取插入前的视频数量
         let before_count = get_video_count_for_source(video_source, connection).await?;
 
-        // 先收集需要的视频信息（包括集数信息和ep_id）
+        // 先收集需要的视频信息（包括集数信息）
         let mut temp_video_infos = Vec::new();
         for video_info in &videos_info {
-            let (title, bvid, upper_name, episode_num, ep_id) = match video_info {
+            let (title, bvid, upper_name, episode_num) = match video_info {
                 VideoInfo::Detail { title, bvid, upper, .. } => {
-                    (title.clone(), bvid.clone(), upper.name.clone(), None, None)
+                    (title.clone(), bvid.clone(), upper.name.clone(), None)
                 }
                 VideoInfo::Favorite { title, bvid, upper, .. } => {
-                    (title.clone(), bvid.clone(), upper.name.clone(), None, None)
+                    (title.clone(), bvid.clone(), upper.name.clone(), None)
                 }
                 VideoInfo::Collection { title, bvid, arc, .. } => {
                     // 从arc字段中提取upper信息
@@ -229,33 +229,17 @@ pub async fn refresh_video_source<'a>(
                         .and_then(|a| a["author"]["name"].as_str())
                         .unwrap_or("未知")
                         .to_string();
-                    (title.clone(), bvid.clone(), upper_name, None, None)
+                    (title.clone(), bvid.clone(), upper_name, None)
                 }
                 VideoInfo::WatchLater { title, bvid, upper, .. } => {
-                    (title.clone(), bvid.clone(), upper.name.clone(), None, None)
+                    (title.clone(), bvid.clone(), upper.name.clone(), None)
                 }
                 VideoInfo::Submission { title, bvid, .. } => {
                     // Submission 没有 upper 信息，使用默认值
-                    (title.clone(), bvid.clone(), "未知".to_string(), None, None)
-                }
-                VideoInfo::Bangumi {
-                    title,
-                    bvid,
-                    episode_number,
-                    ep_id,
-                    ..
-                } => {
-                    // Bangumi 包含 ep_id 信息，用于唯一标识
-                    (
-                        title.clone(),
-                        bvid.clone(),
-                        "番剧".to_string(),
-                        *episode_number,
-                        Some(ep_id.clone()),
-                    )
+                    (title.clone(), bvid.clone(), "未知".to_string(), None)
                 }
             };
-            temp_video_infos.push((title, bvid, upper_name, episode_num, ep_id));
+            temp_video_infos.push((title, bvid, upper_name, episode_num));
         }
 
         // 获取所有视频的BVID，用于后续判断哪些是新增的
@@ -267,7 +251,6 @@ pub async fn refresh_video_source<'a>(
                 VideoInfo::Collection { bvid, .. } => bvid.clone(),
                 VideoInfo::WatchLater { bvid, .. } => bvid.clone(),
                 VideoInfo::Submission { bvid, .. } => bvid.clone(),
-                VideoInfo::Bangumi { bvid, .. } => bvid.clone(),
             })
             .collect();
 
@@ -295,35 +278,16 @@ pub async fn refresh_video_source<'a>(
 
             // 为每个新插入的视频创建通知信息
             for new_video in newly_inserted {
-                // 查找对应的视频信息，对番剧使用ep_id进行精确匹配
-                let video_info_idx = if new_video.source_type == Some(1) && new_video.ep_id.is_some() {
-                    // 番剧：使用ep_id匹配
-                    temp_video_infos.iter().position(
-                        |(_, _, _, _, ep_id): &(String, String, String, Option<i32>, Option<String>)| {
-                            ep_id.as_ref() == new_video.ep_id.as_ref()
-                        },
-                    )
-                } else {
-                    // 其他类型：使用bvid匹配
-                    temp_video_infos
-                        .iter()
-                        .position(|(_, bvid, _, _, _)| bvid == &new_video.bvid)
-                };
+                // 查找对应的视频信息，使用bvid匹配
+                let video_info_idx = temp_video_infos
+                    .iter()
+                    .position(|(_, bvid, _, _)| bvid == &new_video.bvid);
 
                 if let Some(idx) = video_info_idx {
-                    let (title, _, upper_name, bangumi_episode, _) = &temp_video_infos[idx];
+                    let (title, _, upper_name, bangumi_episode) = &temp_video_infos[idx];
 
                     // 使用数据库中的发布时间（已经是北京时间）
                     let pubtime = new_video.pubtime.format("%Y-%m-%d %H:%M:%S").to_string();
-
-                    // 获取集数信息
-                    let episode_number = if let Some(ep) = bangumi_episode {
-                        // 番剧：使用从VideoInfo中获取的集数
-                        Some(*ep)
-                    } else {
-                        // 其他类型：使用数据库中的episode_number字段
-                        new_video.episode_number
-                    };
 
                     new_videos.push(NewVideoInfo {
                         title: title.clone(),
@@ -332,7 +296,7 @@ pub async fn refresh_video_source<'a>(
                         source_type: video_source.source_type_display(),
                         source_name: video_source.source_name_display(),
                         pubtime: Some(pubtime),
-                        episode_number,
+                        episode_number: None,
                         season_number: None,
                         video_id: Some(new_video.id), // 添加视频ID，用于后续过滤
                     });
@@ -697,20 +661,9 @@ pub async fn download_unprocessed_videos(
     let tasks = unhandled_videos_pages
         .into_iter()
         .map(|(video_model, pages_model)| {
-            let should_download_upper = if let Some(season_id) = &video_model.season_id {
-                // 番剧：基于season_id判断是否需要生成series级别文件
-                let season_key = format!("season_{}", season_id);
-                let should_download = !assigned_bangumi_seasons.contains(&season_key);
-                assigned_bangumi_seasons.insert(season_key);
-                debug!("番剧视频「{}」season_id={}, should_download_upper={}",
-                       video_model.name, season_id, should_download);
-                should_download
-            } else {
-                // 普通视频：基于upper_id判断
-                let should_download = !assigned_upper.contains(&video_model.upper_id);
-                assigned_upper.insert(video_model.upper_id);
-                should_download
-            };
+            // 基于upper_id判断是否需要下载UP主信息
+            let should_download_upper = !assigned_upper.contains(&video_model.upper_id);
+            assigned_upper.insert(video_model.upper_id);
             debug!("下载视频: {}", video_model.name);
             download_video_pages(
                 bili_client,
@@ -828,20 +781,9 @@ pub async fn retry_failed_videos_once(
     let tasks = failed_videos_pages
         .into_iter()
         .map(|(video_model, pages_model)| {
-            let should_download_upper = if let Some(season_id) = &video_model.season_id {
-                // 番剧：基于season_id判断是否需要生成series级别文件
-                let season_key = format!("season_{}", season_id);
-                let should_download = !assigned_bangumi_seasons.contains(&season_key);
-                assigned_bangumi_seasons.insert(season_key);
-                debug!("重试番剧视频「{}」season_id={}, should_download_upper={}",
-                       video_model.name, season_id, should_download);
-                should_download
-            } else {
-                // 普通视频：基于upper_id判断
-                let should_download = !assigned_upper.contains(&video_model.upper_id);
-                assigned_upper.insert(video_model.upper_id);
-                should_download
-            };
+            // 基于upper_id判断是否需要下载UP主信息
+            let should_download_upper = !assigned_upper.contains(&video_model.upper_id);
+            assigned_upper.insert(video_model.upper_id);
             debug!("重试视频: {}", video_model.name);
             download_video_pages(
                 bili_client,
@@ -1050,7 +992,7 @@ pub async fn download_video_pages(
     };
 
     // 获取视频源基础路径
-    let video_source_base_path = video_source.video_path();
+    let video_source_base_path = video_source.path();
 
     let path = {
             // 其他类型的视频源使用原来的逻辑
@@ -2076,7 +2018,9 @@ pub async fn fetch_page_poster(
         res = downloader.fetch_with_fallback(&urls, &poster_path) => res,
     }?;
     if let Some(fanart_path) = fanart_path {
-        ensure_parent_dir_for_file(&fanart_path).await?;
+        if let Some(parent) = fanart_path.parent() {
+            fs::create_dir_all(parent).await?;
+        }
         fs::copy(&poster_path, &fanart_path).await?;
     }
     Ok(ExecutionStatus::Succeeded)
@@ -2137,34 +2081,21 @@ pub async fn fetch_page_video(
 
     let bili_video = Video::new(bili_client, video_model.bvid.clone());
 
-    // 获取视频流信息 - 使用带API降级机制的调用
+    // 获取视频流信息
     let mut streams = tokio::select! {
         biased;
         _ = token.cancelled() => return Err(anyhow!("Download cancelled")),
         res = async {
-            // 检查是否为番剧视频
-            if video_model.source_type == Some(1) && video_model.ep_id.is_some() {
-                // 番剧视频使用番剧专用API的回退机制
-                let ep_id = video_model.ep_id.as_ref().unwrap();
-                debug!("使用带质量回退的番剧API获取播放地址: ep_id={}", ep_id);
-                bili_video.get_bangumi_page_analyzer_with_fallback(page_info, ep_id).await
-            } else {
-                // 普通视频使用API降级机制（普通视频API -> 番剧API）
-                debug!("使用API降级机制获取播放地址（普通视频API -> 番剧API）");
-                // 传递ep_id以便在需要时降级到番剧API，如果没有ep_id则会自动从视频详情API获取
-                let ep_id = video_model.ep_id.as_deref();
-                if ep_id.is_some() {
-                    debug!("视频已有ep_id: {:?}，可直接用于API降级", ep_id);
-                } else {
-                    debug!("视频缺少ep_id，如遇-404错误将尝试从视频详情API获取epid");
-                }
-                bili_video.get_page_analyzer_with_api_fallback(page_info, ep_id).await
-            }
+            // 使用普通视频API获取播放地址
+            debug!("获取视频播放地址");
+            bili_video.get_page_analyzer(page_info).await
         } => res
     }?;
 
     // 按需创建保存目录（只在实际下载时创建）
-    ensure_parent_dir_for_file(page_path).await?;
+    if let Some(parent) = page_path.parent() {
+        fs::create_dir_all(parent).await?;
+    }
 
     // UnifiedDownloader会自动选择最佳下载方式
 
@@ -2455,32 +2386,8 @@ pub async fn fetch_page_danmaku(
         return Ok(ExecutionStatus::Ignored(anyhow::anyhow!("CID 无效，无法下载弹幕")));
     }
 
-    // 检查是否为番剧，如果是番剧则需要从API获取正确的 aid
-    let bili_video = if video_model.source_type == Some(1) {
-        // 番剧：需要从API获取aid
-        if let Some(ep_id) = &video_model.ep_id {
-            match tokio::select! {
-                biased;
-                _ = token.cancelled() => None,
-                res = get_bangumi_aid_from_api(bili_client, ep_id, token.clone()) => res,
-            } {
-                Some(aid) => {
-                    debug!("使用番剧API获取到的aid: {}", aid);
-                    Video::new_with_aid(bili_client, video_model.bvid.clone(), aid)
-                }
-                None => {
-                    warn!("无法获取番剧 {} (EP{}) 的AID，使用bvid转换", &video_model.name, ep_id);
-                    Video::new(bili_client, video_model.bvid.clone())
-                }
-            }
-        } else {
-            warn!("番剧 {} 缺少EP ID，使用bvid转换aid", &video_model.name);
-            Video::new(bili_client, video_model.bvid.clone())
-        }
-    } else {
-        // 普通视频：使用 bvid 转换的 aid
-        Video::new(bili_client, video_model.bvid.clone())
-    };
+    // 使用 bvid 创建视频对象
+    let bili_video = Video::new(bili_client, video_model.bvid.clone());
 
     let danmaku_writer = tokio::select! {
         biased;
@@ -2628,7 +2535,9 @@ pub async fn fetch_page_subtitle(
         .into_iter()
         .map(|subtitle| async move {
             let path = subtitle_path.with_extension(format!("{}.srt", subtitle.lan));
-            ensure_parent_dir_for_file(&path).await.map_err(std::io::Error::other)?;
+            if let Some(parent) = path.parent() {
+                tokio::fs::create_dir_all(parent).await.map_err(std::io::Error::other)?;
+            }
             tokio::fs::write(path, subtitle.body.to_string()).await
         })
         .collect::<FuturesUnordered<_>>();
@@ -2654,12 +2563,10 @@ pub async fn generate_page_nfo(
                     // 合集视频应使用Episode格式，符合Emby标准
                     use crate::utils::nfo::Episode;
                     let mut episode = Episode::from_video_and_page(video_model, page_model);
-                    // 对于合集视频，如果数据库中尚未带有 episode_number，按合集顺序编号
-                    if video_model.collection_id.is_some() && video_model.episode_number.is_none() {
-                        if let Some(col_id) = video_model.collection_id {
-                            if let Ok(ep_no) = get_collection_video_episode_number(_connection, col_id, &video_model.bvid).await {
-                                episode.episode_number = ep_no;
-                            }
+                    // 对于合集视频，按合集顺序编号
+                    if let Some(col_id) = video_model.collection_id {
+                        if let Ok(ep_no) = get_collection_video_episode_number(_connection, col_id, &video_model.bvid).await {
+                            episode.episode_number = ep_no;
                         }
                     }
                     NFO::Episode(episode)
@@ -2677,19 +2584,21 @@ pub async fn generate_page_nfo(
         None => {
             use crate::utils::nfo::Episode;
             let mut episode = Episode::from_video_and_page(video_model, page_model);
-            // 非番剧但属于合集的视频：按合集顺序编号，避免固定为1
+            // 属于合集的视频：按合集顺序编号
             if let Some(col_id) = video_model.collection_id {
-                if video_model.episode_number.is_none() {
-                    if let Ok(ep_no) = get_collection_video_episode_number(_connection, col_id, &video_model.bvid).await {
-                        episode.episode_number = ep_no;
-                    }
+                if let Ok(ep_no) = get_collection_video_episode_number(_connection, col_id, &video_model.bvid).await {
+                    episode.episode_number = ep_no;
                 }
             }
             NFO::Episode(episode)
         }
     };
 
-    generate_nfo(nfo, nfo_path).await?;
+    let nfo_content = nfo.generate_nfo().await?;
+    if let Some(parent) = nfo_path.parent() {
+        tokio::fs::create_dir_all(parent).await.map_err(std::io::Error::other)?;
+    }
+    tokio::fs::write(nfo_path, nfo_content).await?;
     Ok(ExecutionStatus::Succeeded)
 }
 
@@ -2702,7 +2611,11 @@ pub async fn generate_video_nfo(
     if !should_run {
         return Ok(ExecutionStatus::Skipped);
     }
-    generate_nfo(NFO::TVShow(video_model.into()), nfo_path).await?;
+    let nfo_content = NFO::TVShow(video_model.into()).generate_nfo().await?;
+    if let Some(parent) = nfo_path.parent() {
+        tokio::fs::create_dir_all(parent).await.map_err(std::io::Error::other)?;
+    }
+    tokio::fs::write(nfo_path, nfo_content).await?;
     Ok(ExecutionStatus::Succeeded)
 }
 
@@ -2719,7 +2632,11 @@ pub async fn generate_collection_video_nfo(
     }
     use crate::utils::nfo::TVShow;
     let tvshow = TVShow::from_video_with_collection(video_model, collection_name, collection_cover);
-    generate_nfo(NFO::TVShow(tvshow), nfo_path).await?;
+    let nfo_content = NFO::TVShow(tvshow).generate_nfo().await?;
+    if let Some(parent) = nfo_path.parent() {
+        tokio::fs::create_dir_all(parent).await.map_err(std::io::Error::other)?;
+    }
+    tokio::fs::write(nfo_path, nfo_content).await?;
     Ok(ExecutionStatus::Succeeded)
 }
 
@@ -2754,7 +2671,9 @@ pub async fn fetch_video_poster(
     }?;
 
     // 下载fanart背景图
-    ensure_parent_dir_for_file(&fanart_path).await?;
+    if let Some(parent) = fanart_path.parent() {
+        fs::create_dir_all(parent).await?;
+    }
     if let Some(fanart_url) = custom_fanart_url {
         // 如果有专门的fanart URL，独立下载
         let fanart_urls = vec![fanart_url];
@@ -2829,7 +2748,11 @@ pub async fn generate_upper_nfo(
     if !should_run {
         return Ok(ExecutionStatus::Skipped);
     }
-    generate_nfo(NFO::Upper(video_model.into()), nfo_path).await?;
+    let nfo_content = NFO::Upper(video_model.into()).generate_nfo().await?;
+    if let Some(parent) = nfo_path.parent() {
+        tokio::fs::create_dir_all(parent).await.map_err(std::io::Error::other)?;
+    }
+    tokio::fs::write(nfo_path, nfo_content).await?;
     Ok(ExecutionStatus::Succeeded)
 }
 

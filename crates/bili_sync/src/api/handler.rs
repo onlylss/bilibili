@@ -3,7 +3,6 @@ use std::sync::Arc;
 
 use anyhow::{anyhow, Context, Result};
 use axum::extract::{Extension, Path, Query};
-use chrono::Datelike;
 
 use crate::utils::time_format::{now_standard_string, to_standard_string};
 use crate::http::headers::{create_image_headers, create_api_headers};
@@ -499,7 +498,6 @@ pub async fn get_videos(
 
     Ok(ApiResponse::ok(VideosResponse {
         videos: {
-            // 查询包含season_id和source_type字段，用于番剧标题获取
             type RawVideoTuple = (
                 i32,
                 String,
@@ -508,8 +506,6 @@ pub async fn get_videos(
                 i32,
                 u32,
                 String,
-                Option<String>,
-                Option<i32>,
             );
             let raw_videos: Vec<RawVideoTuple> = query
                 .select_only()
@@ -3366,9 +3362,9 @@ pub async fn reset_video_source_path(
 
 /// 验证路径重设操作的安全性
 async fn validate_path_reset_safety(
-    txn: &sea_orm::DatabaseTransaction,
-    source_type: &str,
-    id: i32,
+    _txn: &sea_orm::DatabaseTransaction,
+    _source_type: &str,
+    _id: i32,
     new_base_path: &str,
 ) -> Result<(), ApiError> {
     use std::path::Path;
@@ -4055,9 +4051,7 @@ pub async fn update_config(
             video_name: params.video_name.clone(),
             page_name: params.page_name.clone(),
             multi_page_name: params.multi_page_name.clone(),
-            bangumi_name: params.bangumi_name.clone(),
             folder_structure: params.folder_structure.clone(),
-            bangumi_folder_name: params.bangumi_folder_name.clone(),
             collection_folder_mode: params.collection_folder_mode.clone(),
             time_format: params.time_format.clone(),
             interval: params.interval,
@@ -4991,15 +4985,6 @@ pub async fn update_config_internal(
                         .update_config_item("nfo_config", serde_json::to_value(&config.nfo_config)?)
                         .await
                 }
-                // 跳过番剧预告片
-                "skip_bangumi_preview" => {
-                    manager
-                        .update_config_item(
-                            "skip_bangumi_preview",
-                            serde_json::to_value(config.skip_bangumi_preview)?,
-                        )
-                        .await
-                }
                 // Season结构配置字段
                 "multi_page_use_season_structure" => {
                     manager
@@ -5123,7 +5108,6 @@ pub async fn update_config_internal(
             &latest_config,
             rename_single_page,
             rename_multi_page,
-            rename_bangumi,
             rename_folder_structure,
         )
         .await
@@ -5287,7 +5271,6 @@ async fn rename_existing_files(
     config: &crate::config::Config,
     rename_single_page: bool,
     rename_multi_page: bool,
-    rename_bangumi: bool,
     rename_folder_structure: bool,
 ) -> Result<u32> {
     use handlebars::{handlebars_helper, Handlebars};
@@ -5343,28 +5326,15 @@ async fn rename_existing_files(
         all_videos.extend(regular_videos);
     }
 
-    // 2. 处理番剧类型的视频
-    if rename_bangumi {
-        let bangumi_videos = bili_sync_entity::video::Entity::find()
-            .filter(bili_sync_entity::video::Column::DownloadStatus.gt(0))
-            .filter(bili_sync_entity::video::Column::SourceType.eq(1)) // 番剧类型
-            .all(db.as_ref())
-            .await?;
-        all_videos.extend(bangumi_videos);
-    }
-
     info!("找到 {} 个需要检查的视频", all_videos.len());
 
     for video in all_videos {
         // 检查视频类型，决定是否需要重命名
         let is_single_page = video.single_page.unwrap_or(true);
-        let is_bangumi = video.source_type == Some(1);
         let is_collection = video.collection_id.is_some();
 
         // 根据视频类型和配置更新情况决定是否跳过
-        let should_process_video = if is_bangumi {
-            rename_bangumi // 番剧视频只在bangumi_name或video_name更新时处理
-        } else if is_collection {
+        let should_process_video = if is_collection {
             rename_multi_page // 合集视频使用多P视频的重命名逻辑，但需要特殊处理
         } else if is_single_page {
             rename_single_page // 单P视频只在page_name或video_name更新时处理
@@ -6123,8 +6093,6 @@ pub async fn search_bilibili(
             bvid: r.bvid,
             aid: r.aid,
             mid: r.mid,
-            season_id: r.season_id,
-            media_id: r.media_id,
             cover: r.cover,
             description: r.description,
             duration: r.duration,
@@ -7968,7 +7936,7 @@ async fn find_video_info(video_id: &str, db: &DatabaseConnection) -> Result<Vide
                     cid: page_record.cid.to_string(),
                     title: format!("{} - {}", video_record.name, page_record.name),
                     source_type: video_record.source_type,
-                    ep_id: video_record.ep_id,
+                    ep_id: None,
                 });
             }
         }
@@ -8005,7 +7973,7 @@ async fn find_video_info(video_id: &str, db: &DatabaseConnection) -> Result<Vide
         cid: first_page.cid.to_string(),
         title: video.name,
         source_type: video.source_type,
-        ep_id: video.ep_id,
+        ep_id: None,
     })
 }
 
@@ -9202,8 +9170,8 @@ async fn reset_nfo_tasks_for_config_change(db: Arc<DatabaseConnection>) -> Resul
 pub async fn get_dashboard_data(
     Extension(db): Extension<Arc<DatabaseConnection>>,
 ) -> Result<ApiResponse<crate::api::response::DashBoardResponse>, ApiError> {
-    let (enabled_favorites, enabled_collections, enabled_submissions, enabled_watch_later, enabled_bangumi,
-         total_favorites, total_collections, total_submissions, total_watch_later, total_bangumi, videos_by_day) = tokio::try_join!(
+    let (enabled_favorites, enabled_collections, enabled_submissions, enabled_watch_later,
+         total_favorites, total_collections, total_submissions, total_watch_later, videos_by_day) = tokio::try_join!(
         favorite::Entity::find()
             .filter(favorite::Column::Enabled.eq(true))
             .count(db.as_ref()),
@@ -9216,10 +9184,6 @@ pub async fn get_dashboard_data(
         watch_later::Entity::find()
             .filter(watch_later::Column::Enabled.eq(true))
             .count(db.as_ref()),
-        video_source::Entity::find()
-            .filter(video_source::Column::Type.eq(1))
-            .filter(video_source::Column::Enabled.eq(true))
-            .count(db.as_ref()),
         // 统计所有视频源（包括禁用的）
         favorite::Entity::find()
             .count(db.as_ref()),
@@ -9228,9 +9192,6 @@ pub async fn get_dashboard_data(
         submission::Entity::find()
             .count(db.as_ref()),
         watch_later::Entity::find()
-            .count(db.as_ref()),
-        video_source::Entity::find()
-            .filter(video_source::Column::Type.eq(1))
             .count(db.as_ref()),
         crate::api::response::DayCountPair::find_by_statement(sea_orm::Statement::from_string(
             db.get_database_backend(),
@@ -9264,12 +9225,10 @@ ORDER BY
     let active_sources = enabled_favorites
         + enabled_collections
         + enabled_submissions
-        + enabled_bangumi
         + if enabled_watch_later > 0 { 1 } else { 0 };
     let total_all_sources = total_favorites
         + total_collections
         + total_submissions
-        + total_bangumi
         + if total_watch_later > 0 { 1 } else { 0 };
     let inactive_sources = total_all_sources - active_sources;
 
@@ -9293,12 +9252,10 @@ ORDER BY
         enabled_favorites,
         enabled_collections,
         enabled_submissions,
-        enabled_bangumi,
         enable_watch_later: enabled_watch_later > 0,
         total_favorites,
         total_collections,
         total_submissions,
-        total_bangumi,
         total_watch_later,
         videos_by_day,
         monitoring_status,

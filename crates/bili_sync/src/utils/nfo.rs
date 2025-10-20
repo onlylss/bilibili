@@ -1524,13 +1524,8 @@ impl<'a> From<&'a video::Model> for Movie<'a> {
         // 使用动态配置而非静态CONFIG
         let config = crate::config::reload_config();
 
-        // 对于番剧影视类型（show_season_type=2），使用share_copy作为标题
-        // 其他类型继续使用video.name
-        let nfo_title = if video.show_season_type == Some(2) {
-            video.share_copy.as_deref().unwrap_or(&video.name)
-        } else {
-            &video.name
-        };
+        // 使用video.name作为标题
+        let nfo_title = &video.name;
 
         let aired_time = match config.nfo_config.time_type {
             NFOTimeType::FavTime => video.favtime,
@@ -1538,14 +1533,7 @@ impl<'a> From<&'a video::Model> for Movie<'a> {
         };
 
         // 提取标语/副标题
-        let tagline = if video.show_season_type == Some(2) {
-            video
-                .share_copy
-                .as_ref()
-                .and_then(|sc| NFO::extract_subtitle_from_share_copy(sc))
-        } else {
-            None
-        };
+        let tagline = None;
 
         // 生成排序标题（去除特殊字符，便于排序）
         let sorttitle = Some({
@@ -1601,7 +1589,7 @@ impl<'a> From<&'a video::Model> for Movie<'a> {
             tagline,
             set: set_name,
             sorttitle,
-            actors_info: video.actors.clone(),
+            actors_info: None,
             cover_url: &video.cover,
             fanart_url: None, // Movie暂不单独设置fanart URL
             upper_face_url: if !video.upper_face.is_empty() { Some(&video.upper_face) } else { None },
@@ -1614,13 +1602,8 @@ impl<'a> From<&'a video::Model> for TVShow<'a> {
         // 使用动态配置而非静态CONFIG
         let config = crate::config::reload_config();
 
-        // 对于番剧影视类型（show_season_type=2），使用share_copy作为标题
-        // 其他类型继续使用video.name
-        let nfo_title = if video.show_season_type == Some(2) {
-            video.share_copy.as_deref().unwrap_or(&video.name)
-        } else {
-            &video.name
-        };
+        // 使用video.name作为标题
+        let nfo_title = &video.name;
 
         let aired_time = match config.nfo_config.time_type {
             NFOTimeType::FavTime => video.favtime,
@@ -1628,14 +1611,7 @@ impl<'a> From<&'a video::Model> for TVShow<'a> {
         };
 
         // 提取标语/副标题
-        let tagline = if video.show_season_type == Some(2) {
-            video
-                .share_copy
-                .as_ref()
-                .and_then(|sc| NFO::extract_subtitle_from_share_copy(sc))
-        } else {
-            None
-        };
+        let tagline = None;
 
         // 生成排序标题（去除特殊字符，便于排序）
         let sorttitle = Some({
@@ -1692,7 +1668,7 @@ impl<'a> From<&'a video::Model> for TVShow<'a> {
             tagline,
             set: set_name,
             sorttitle,
-            actors_info: video.actors.clone(),
+            actors_info: None,
             cover_url: &video.cover,
             fanart_url: None, // 普通视频没有单独的fanart URL
             upper_face_url: if !video.upper_face.is_empty() { Some(&video.upper_face) } else { None },
@@ -1806,25 +1782,14 @@ impl<'a> From<&'a page::Model> for Episode<'a> {
 impl<'a> Episode<'a> {
     /// 从视频模型和页面模型创建Episode，使用正确的episode_number
     pub fn from_video_and_page(video: &'a video::Model, page: &'a page::Model) -> Self {
-        // 判断是否为番剧且启用了Season结构
-        let is_bangumi = video.source_type == Some(1);
-        let config = crate::config::reload_config();
-        let use_unified_season = is_bangumi && config.bangumi_use_season_structure;
-
-        // 启用Season结构时，统一使用season=1；否则使用原始season_number
-        let season_number = if use_unified_season {
-            1
-        } else {
-            video.season_number.unwrap_or(1)
-        };
-
+        // 使用默认的season=1和page.pid作为集数
         Self {
             name: &page.name,
             original_title: &page.name,
             pid: page.pid.to_string(),
             plot: Some(&video.intro),                                 // 使用视频简介
-            season: season_number,                                    // 根据配置使用统一season或原始season_number
-            episode_number: video.episode_number.unwrap_or(page.pid), // 使用video的episode_number
+            season: 1,                                                // 默认第一季
+            episode_number: page.pid,                                 // 使用页面ID作为集数
             aired: Some(video.pubtime),                               // 使用视频发布时间
             duration: Some(page.duration as i32 / 60),                // 分页时长转换为分钟
             user_rating: None,                                        // 分页没有单独评分
@@ -1850,13 +1815,8 @@ impl<'a> From<&'a video::Model> for Season<'a> {
         // 使用动态配置而非静态CONFIG
         let config = crate::config::reload_config();
 
-        // 对于番剧影视类型（show_season_type=2），使用share_copy作为标题
-        // 其他类型继续使用video.name
-        let nfo_title = if video.show_season_type == Some(2) {
-            video.share_copy.as_deref().unwrap_or(&video.name)
-        } else {
-            &video.name
-        };
+        // 使用video.name作为标题
+        let nfo_title = &video.name;
 
         let aired_time = match config.nfo_config.time_type {
             NFOTimeType::FavTime => video.favtime,
@@ -1864,14 +1824,7 @@ impl<'a> From<&'a video::Model> for Season<'a> {
         };
 
         // 提取标语/副标题
-        let tagline = if video.show_season_type == Some(2) {
-            video
-                .share_copy
-                .as_ref()
-                .and_then(|sc| NFO::extract_subtitle_from_share_copy(sc))
-        } else {
-            None
-        };
+        let tagline = None;
 
         // 生成排序标题（去除特殊字符，便于排序）
         let sorttitle = Some({
@@ -1905,7 +1858,7 @@ impl<'a> From<&'a video::Model> for Season<'a> {
             name: nfo_title,
             original_title: &video.name,
             intro: &video.intro,
-            season_number: video.season_number.unwrap_or(1), // 使用video的season_number，默认为1
+            season_number: 1, // 默认第一季
             bvid: &video.bvid,
             upper_id: video.upper_id,
             upper_name: &video.upper_name,
@@ -1928,7 +1881,7 @@ impl<'a> From<&'a video::Model> for Season<'a> {
             tagline,
             set: set_name,
             sorttitle,
-            actors_info: video.actors.clone(),
+            actors_info: None,
             cover_url: &video.cover,
             fanart_url: None, // 普通视频没有单独的fanart URL
             upper_face_url: if !video.upper_face.is_empty() { Some(&video.upper_face) } else { None },

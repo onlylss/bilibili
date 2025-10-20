@@ -138,6 +138,35 @@ impl VideoInfo {
                 cid: Set(None), // 后续通过get_view_info填充
                 ..default
             },
+            VideoInfo::Detail {
+                title,
+                bvid,
+                intro,
+                cover,
+                upper,
+                ctime,
+                pubtime,
+                state,
+                ..
+            } => bili_sync_entity::video::ActiveModel {
+                bvid: Set(bvid),
+                name: Set(title),
+                intro: Set(intro),
+                cover: Set(cover),
+                ctime: Set(ctime
+                    .with_timezone(&crate::utils::time_format::beijing_timezone())
+                    .naive_local()),
+                pubtime: Set(pubtime
+                    .with_timezone(&crate::utils::time_format::beijing_timezone())
+                    .naive_local()),
+                category: Set(2), // 详情接口的内容类型肯定是视频
+                valid: Set(state == 0),
+                upper_id: Set(upper.mid),
+                upper_name: Set(upper.name),
+                upper_face: Set(upper.face),
+                cid: Set(None), // 后续通过get_view_info填充
+                ..default
+            },
         }
     }
 
@@ -204,8 +233,8 @@ impl VideoInfo {
             VideoInfo::Collection { pubtime: time, .. }
             | VideoInfo::Favorite { fav_time: time, .. }
             | VideoInfo::WatchLater { fav_time: time, .. }
-            | VideoInfo::Submission { ctime: time, .. } => time,
-            _ => unreachable!(),
+            | VideoInfo::Submission { ctime: time, .. }
+            | VideoInfo::Detail { pubtime: time, .. } => time,
         }
     }
 }
