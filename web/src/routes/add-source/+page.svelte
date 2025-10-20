@@ -710,19 +710,6 @@
 		});
 	}
 
-	// 处理Season ID变化
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
-	function handleSeasonIdChange() {
-		clearTimeout(seasonIdTimeout);
-		if (sourceId.trim() && sourceType === 'bangumi') {
-			seasonIdTimeout = setTimeout(() => {
-				fetchBangumiSeasons();
-			}, 500);
-		} else {
-			bangumiSeasons = [];
-			selectedSeasons = [];
-		}
-	}
 
 	// 加载已有视频源（用于过滤）
 	async function loadExistingVideoSources() {
@@ -1735,9 +1722,7 @@
 												bind:value={searchKeyword}
 												placeholder={sourceType === 'submission' || sourceType === 'collection'
 													? '搜索UP主...'
-													: sourceType === 'bangumi'
-														? '搜索番剧...'
-														: '搜索视频...'}
+													: '搜索视频...'}
 												onkeydown={(e) => e.key === 'Enter' && handleSearch()}
 											/>
 											<div class="flex gap-2">
@@ -1781,8 +1766,6 @@
 												搜索UP主后会自动填充UP主ID，并显示该UP主的所有合集供选择
 											{:else if sourceType === 'submission'}
 												搜索并选择UP主，将自动填充UP主ID
-											{:else if sourceType === 'bangumi'}
-												搜索并选择番剧，将自动填充Season ID
 											{:else}
 												根据当前选择的视频源类型搜索对应内容
 											{/if}
@@ -1925,13 +1908,12 @@
 									{#if sourceType === 'collection'}合集ID
 									{:else if sourceType === 'favorite'}收藏夹ID
 									{:else if sourceType === 'submission'}UP主ID
-									{:else if sourceType === 'bangumi'}Season ID
 									{:else}ID{/if}
 								</Label>
 								<Input
 									id="source-id"
 									bind:value={sourceId}
-									placeholder={`请输入${sourceType === 'collection' ? '合集' : sourceType === 'favorite' ? '任意公开收藏夹' : sourceType === 'submission' ? 'UP主' : sourceType === 'bangumi' ? 'Season' : ''}ID`}
+									placeholder={`请输入${sourceType === 'collection' ? '合集' : sourceType === 'favorite' ? '任意公开收藏夹' : sourceType === 'submission' ? 'UP主' : ''}ID`}
 									oninput={() => {
 										if (sourceType === 'collection') {
 											isManualInput = true;
@@ -1958,70 +1940,6 @@
 									{/if}
 								{/if}
 
-								<!-- 下载所有季度（仅番剧时显示，紧跟在Season ID后面） -->
-								{#if sourceType === 'bangumi' && sourceId && bangumiSeasons.length > 0 && !loadingSeasons}
-									<div class="mt-3 flex items-center space-x-2">
-										<input
-											type="checkbox"
-											id="download-all-seasons"
-											bind:checked={downloadAllSeasons}
-											onchange={() => {
-												if (downloadAllSeasons) selectedSeasons = [];
-											}}
-											class="text-primary focus:ring-primary h-4 w-4 rounded border-gray-300"
-										/>
-										<Label
-											for="download-all-seasons"
-											class="text-sm leading-none font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-										>
-											下载所有季度
-										</Label>
-									</div>
-									{#if downloadAllSeasons}
-										<p class="mt-1 ml-6 text-xs text-purple-600">
-											勾选后将下载该番剧的所有季度，无需单独选择
-										</p>
-									{:else if bangumiSeasons.length > 1}
-										<p class="mt-1 ml-6 text-xs text-purple-600">
-											检测到 {bangumiSeasons.length} 个相关季度，请在{isMobile
-												? '下方'
-												: '右侧'}选择要下载的季度
-										</p>
-									{:else if bangumiSeasons.length === 1}
-										<p class="mt-1 ml-6 text-xs text-purple-600">该番剧只有当前一个季度</p>
-									{/if}
-
-									<!-- 合并到现有番剧源选项 -->
-									{#if existingBangumiSources.length > 0}
-										<div class="mt-3 space-y-2">
-											<Label class="text-sm font-medium">合并选项（可选）</Label>
-											<select
-												bind:value={mergeToSourceId}
-												class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-purple-500 focus:ring-1 focus:ring-purple-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-											>
-												<option value={null}>作为新的独立番剧源添加</option>
-												{#each existingBangumiSources as source}
-													<option value={source.id}>
-														合并到：{source.name}
-														{#if source.season_id}(Season ID: {source.season_id}){/if}
-														{#if source.media_id}(Media ID: {source.media_id}){/if}
-													</option>
-												{/each}
-											</select>
-											{#if mergeToSourceId}
-												<p class="text-xs text-orange-600">
-													⚠️ 合并后，新番剧的内容将添加到选中的现有番剧源中，不会创建新的番剧源
-												</p>
-											{:else}
-												<p class="text-xs text-gray-500">
-													可以选择将新番剧合并到现有番剧源中，方便管理相关内容（如新季度、剧场版等）
-												</p>
-											{/if}
-										</div>
-									{/if}
-								{:else if sourceType === 'bangumi' && sourceId && loadingSeasons}
-									<p class="mt-3 text-xs text-purple-600">正在获取季度信息...</p>
-								{/if}
 
 								<!-- UP主投稿选择状态显示和控制（仅投稿类型时显示） -->
 								{#if sourceType === 'submission' && sourceId}
@@ -2163,10 +2081,6 @@
 											: 'grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));'}
 									>
 										{#each filteredSearchResults as result, i (result.bvid || result.season_id || result.mid || i)}
-											{@const isBangumiExisting =
-												sourceType === 'bangumi' &&
-												result.season_id &&
-												isBangumiSeasonExists(result.season_id)}
 											{@const itemKey = `search_${result.bvid || result.season_id || result.mid || i}`}
 											<button
 												onclick={() => {
@@ -2179,14 +2093,11 @@
 												onmouseenter={(e) => handleMouseEnter(result, e)}
 												onmouseleave={handleMouseLeave}
 												onmousemove={handleMouseMove}
-												class="hover:bg-muted relative flex transform items-start gap-3 rounded-lg border p-4 text-left transition-all duration-300 hover:scale-102 hover:shadow-md {isBangumiExisting
-													? 'opacity-60'
-													: ''} {batchMode && isBatchSelected(itemKey)
+												class="hover:bg-muted relative flex transform items-start gap-3 rounded-lg border p-4 text-left transition-all duration-300 hover:scale-102 hover:shadow-md {batchMode && isBatchSelected(itemKey)
 													? 'bg-blue-50 ring-2 ring-blue-500 dark:bg-blue-950'
 													: ''}"
 												transition:fly={{ y: 50, duration: 300, delay: i * 50 }}
 												animate:flip={{ duration: 300 }}
-												disabled={isBangumiExisting}
 											>
 												<!-- 批量模式下的复选框 -->
 												{#if batchMode && sourceType === 'submission'}
@@ -2206,9 +2117,7 @@
 													<img
 														src={processBilibiliImageUrl(result.cover)}
 														alt={result.title}
-														class="{sourceType === 'bangumi'
-															? 'h-20 w-14'
-															: 'h-14 w-20'} flex-shrink-0 rounded object-cover"
+														class="h-14 w-20 flex-shrink-0 rounded object-cover"
 														onerror={handleImageError}
 														loading="lazy"
 														crossorigin="anonymous"
@@ -2216,9 +2125,7 @@
 													/>
 												{:else}
 													<div
-														class="{sourceType === 'bangumi'
-															? 'h-20 w-14'
-															: 'h-14 w-20'} bg-muted text-muted-foreground flex flex-shrink-0 items-center justify-center rounded text-xs"
+														class="h-14 w-20 bg-muted text-muted-foreground flex flex-shrink-0 items-center justify-center rounded text-xs"
 													>
 														无图片
 													</div>
