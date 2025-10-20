@@ -39,14 +39,12 @@ pub struct SearchResponseWrapper {
 /// bilibili搜索结果类型
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SearchResult {
-    pub result_type: String,       // video, bili_user, media_bangumi等
+    pub result_type: String,       // video, bili_user等
     pub title: String,             // 标题
     pub author: String,            // 作者/UP主
     pub bvid: Option<String>,      // 视频BV号
     pub aid: Option<i64>,          // 视频AV号
     pub mid: Option<i64>,          // UP主ID
-    pub season_id: Option<String>, // 番剧season_id
-    pub media_id: Option<String>,  // 番剧media_id
     pub cover: String,             // 封面图
     pub description: String,       // 描述
     pub duration: Option<String>,  // 视频时长
@@ -317,7 +315,7 @@ impl BiliClient {
     ///
     /// # Arguments
     /// * `keyword` - 搜索关键词
-    /// * `search_type` - 搜索类型：video(视频), bili_user(UP主), media_bangumi(番剧)等
+    /// * `search_type` - 搜索类型：video(视频), bili_user(UP主)等
     /// * `page` - 页码（从1开始）
     /// * `page_size` - 每页数量
     pub async fn search(
@@ -422,56 +420,6 @@ impl BiliClient {
                     media_id: None,
                     cover: item["upic"].as_str().unwrap_or("").to_string(),
                     description: item["usign"].as_str().unwrap_or("").to_string(),
-                    duration: None,
-                    pubdate: None,
-                    play: None,
-                    danmaku: None,
-                })
-            }
-            "media_bangumi" => {
-                // 解析番剧搜索结果
-                Ok(SearchResult {
-                    result_type: "media_bangumi".to_string(),
-                    title: item["title"].as_str().unwrap_or("").to_string(),
-                    author: item["staff"].as_str().unwrap_or("").to_string(),
-                    bvid: None,
-                    aid: None,
-                    mid: None,
-                    season_id: item["season_id"]
-                        .as_str()
-                        .map(|s| s.to_string())
-                        .or_else(|| item["season_id"].as_i64().map(|s| s.to_string())),
-                    media_id: item["media_id"]
-                        .as_str()
-                        .map(|s| s.to_string())
-                        .or_else(|| item["media_id"].as_i64().map(|s| s.to_string())),
-                    cover: item["cover"].as_str().unwrap_or("").to_string(),
-                    description: item["desc"].as_str().unwrap_or("").to_string(),
-                    duration: None,
-                    pubdate: None,
-                    play: None,
-                    danmaku: None,
-                })
-            }
-            "media_ft" => {
-                // 解析影视搜索结果（电影、电视剧等）
-                Ok(SearchResult {
-                    result_type: "media_ft".to_string(),
-                    title: item["title"].as_str().unwrap_or("").to_string(),
-                    author: item["staff"].as_str().unwrap_or("").to_string(),
-                    bvid: None,
-                    aid: None,
-                    mid: None,
-                    season_id: item["season_id"]
-                        .as_str()
-                        .map(|s| s.to_string())
-                        .or_else(|| item["season_id"].as_i64().map(|s| s.to_string())),
-                    media_id: item["media_id"]
-                        .as_str()
-                        .map(|s| s.to_string())
-                        .or_else(|| item["media_id"].as_i64().map(|s| s.to_string())),
-                    cover: item["cover"].as_str().unwrap_or("").to_string(),
-                    description: item["desc"].as_str().unwrap_or("").to_string(),
                     duration: None,
                     pubdate: None,
                     play: None,
