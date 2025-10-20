@@ -38,6 +38,7 @@ pub struct Movie<'a> {
     pub duration: Option<i32>,       // 视频时长（分钟）
     pub view_count: Option<i64>,     // 播放量
     pub like_count: Option<i64>,     // 点赞数
+    #[allow(dead_code)]
     pub category: i32,               // 视频分类
     pub tagline: Option<String>,     // 标语/副标题（从share_copy提取）
     pub set: Option<String>,         // 系列名称
@@ -102,6 +103,7 @@ pub struct Episode<'a> {
     pub director: Option<&'a str>,
     pub credits: Option<&'a str>,
     pub bvid: &'a str,               // B站视频ID
+    #[allow(dead_code)]
     pub category: i32,               // 视频分类
     pub mpaa: Option<&'a str>,       // 年龄分级
     pub country: Option<&'a str>,    // 国家
@@ -132,6 +134,7 @@ pub struct Season<'a> {
     pub duration: Option<i32>,       // 平均集时长（分钟）
     pub view_count: Option<i64>,     // 总播放量
     pub like_count: Option<i64>,     // 总点赞数
+    #[allow(dead_code)]
     pub category: i32,               // 视频分类
     pub tagline: Option<String>,     // 标语/副标题
     pub set: Option<String>,         // 系列名称
