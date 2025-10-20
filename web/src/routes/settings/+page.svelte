@@ -127,9 +127,7 @@
 	let videoName = '{{upper_name}}';
 	let pageName = '{{pubtime}}-{{bvid}}-{{truncate title 20}}';
 	let multiPageName = 'P{{pid_pad}}.{{ptitle}}';
-	let bangumiName = '{{title}} S{{season_pad}}E{{pid_pad}} - {{ptitle}}';
 	let folderStructure = 'Season {{season_pad}}';
-	let bangumiFolderName = '{{title}}';
 	let collectionFolderMode = 'unified';
 	let timeFormat = '%Y-%m-%d';
 	let interval = 1200;
@@ -224,9 +222,6 @@
 
 	// 合集目录结构配置
 	let collectionUseSeasonStructure = false;
-
-	// 番剧目录结构配置
-	let bangumiUseSeasonStructure = false;
 
 	// 推送通知配置
 	let notificationEnabled = false;
@@ -440,9 +435,7 @@
 			videoName = config.video_name || '';
 			pageName = config.page_name || '';
 			multiPageName = config.multi_page_name || '';
-			bangumiName = config.bangumi_name || '';
 			folderStructure = config.folder_structure || '';
-			bangumiFolderName = config.bangumi_folder_name || '{{title}}';
 			collectionFolderMode = config.collection_folder_mode || 'separate';
 			timeFormat = config.time_format || '';
 			interval = config.interval || 1200;
@@ -534,9 +527,6 @@
 
 			// 合集目录结构配置
 			collectionUseSeasonStructure = config.collection_use_season_structure ?? false;
-
-			// 番剧目录结构配置
-			bangumiUseSeasonStructure = config.bangumi_use_season_structure ?? false;
 		} catch (error: unknown) {
 			console.error('加载配置失败:', error);
 			toast.error('加载配置失败', {
@@ -686,9 +676,7 @@
 				video_name: videoName,
 				page_name: pageName,
 				multi_page_name: multiPageName,
-				bangumi_name: bangumiName,
 				folder_structure: folderStructure,
-				bangumi_folder_name: bangumiFolderName,
 				collection_folder_mode: collectionFolderMode,
 				time_format: timeFormat,
 				interval: interval,
@@ -752,8 +740,6 @@
 				multi_page_use_season_structure: multiPageUseSeasonStructure,
 				// 合集目录结构配置
 				collection_use_season_structure: collectionUseSeasonStructure,
-				// 番剧目录结构配置
-				bangumi_use_season_structure: bangumiUseSeasonStructure,
 				// 风控验证配置
 				risk_control_enabled: riskControlEnabled,
 				risk_control_mode: riskControlMode,
@@ -1306,44 +1292,6 @@
 									启用后将为合集创建"Season 01"子文件夹，与多P视频相同的媒体库结构
 								</p>
 							</div>
-
-							<!-- 番剧Season结构设置 -->
-							<div class="space-y-2">
-								<div class="flex items-center space-x-2">
-									<input
-										type="checkbox"
-										id="bangumi-season"
-										bind:checked={bangumiUseSeasonStructure}
-										class="text-primary focus:ring-primary h-4 w-4 rounded border-gray-300"
-									/>
-									<Label
-										for="bangumi-season"
-										class="text-sm leading-none font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-									>
-										番剧使用统一Season文件夹结构
-									</Label>
-								</div>
-								<p class="text-muted-foreground text-xs">
-									启用后多季番剧将创建统一根目录，在其下按"Season 01"、"Season
-									02"分季存放，提升媒体库识别度
-								</p>
-							</div>
-
-							<div class="space-y-2">
-								<Label for="bangumi-name">番剧文件名模板</Label>
-								<Input id="bangumi-name" bind:value={bangumiName} placeholder={`第{{pid_pad}}集`} />
-								<p class="text-muted-foreground text-xs">控制番剧的季度文件夹和集数文件名</p>
-							</div>
-
-							<div class="space-y-2">
-								<Label for="bangumi-folder-name">番剧文件夹名模板</Label>
-								<Input
-									id="bangumi-folder-name"
-									bind:value={bangumiFolderName}
-									placeholder={`{{title}}`}
-								/>
-								<p class="text-muted-foreground text-xs">控制番剧主文件夹的命名，包含元数据文件</p>
-							</div>
 						</div>
 
 						<div class="space-y-2">
@@ -1408,22 +1356,6 @@
 								<p><strong>文件命名：</strong>保持现有的multi_page_name模板不变</p>
 								<p class="text-green-600 dark:text-green-400">
 									<strong>注意：</strong>默认关闭保持向后兼容，启用后新下载的多P视频将使用新结构
-								</p>
-							</div>
-						</div>
-
-						<div
-							class="mt-6 rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-950/20"
-						>
-							<h5 class="mb-2 font-medium text-blue-800 dark:text-blue-200">番剧Season结构说明</h5>
-							<div class="space-y-1 text-sm text-blue-700 dark:text-blue-300">
-								<p><strong>启用后：</strong>多季番剧将创建统一的系列根目录</p>
-								<p><strong>智能识别：</strong>自动从"灵笼 第二季"中提取"灵笼"作为系列名</p>
-								<p><strong>目录层级：</strong>系列名/Season 01、Season 02/剧集文件</p>
-								<p><strong>媒体库优势：</strong>Emby/Jellyfin能正确识别同一系列的不同季度</p>
-								<p><strong>文件命名：</strong>保持现有的bangumi_name模板不变</p>
-								<p class="text-blue-600 dark:text-blue-400">
-									<strong>注意：</strong>默认关闭保持向后兼容，仅影响新下载的番剧
 								</p>
 							</div>
 						</div>
