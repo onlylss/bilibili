@@ -95,8 +95,8 @@
 
 	// 悬停详情相关
 	let hoveredItem: {
-		type: 'search' | 'season';
-		data: SearchResultItem | BangumiSeasonInfo;
+		type: 'search';
+		data: SearchResultItem;
 	} | null = null;
 	let hoverTimeout: ReturnType<typeof setTimeout> | null = null;
 	let mousePosition = { x: 0, y: 0 };
@@ -388,17 +388,6 @@
 		if (!path) {
 			toast.error('请输入保存路径', { description: '保存路径不能为空' });
 			return;
-		}
-
-		// 番剧特殊验证
-		if (sourceType === 'bangumi') {
-			// 如果不是下载全部季度，且没有选择任何季度，且不是单季度情况，则提示错误
-			if (!downloadAllSeasons && selectedSeasons.length === 0 && bangumiSeasons.length > 1) {
-				toast.error('请选择要下载的季度', {
-					description: '未选择"下载全部季度"时，至少需要选择一个季度'
-				});
-				return;
-			}
 		}
 
 		loading = true;
@@ -840,12 +829,6 @@
 		selectedUserId = '';
 		selectedUserName = '';
 		loadingSearchedUserFavorites = false;
-		// 注意：bangumiSeasons 和 selectedSeasons 在另一个响应式语句中处理
-	}
-
-	// 监听 source_id 变化，自动获取季度信息
-	$: if (sourceType === 'bangumi' && sourceId) {
-		fetchBangumiSeasons();
 	}
 
 	// 切换源类型时，如处于批量模式且已有选择，则清空选择防止跨源类型
@@ -859,8 +842,8 @@
 
 	// 统一的悬浮处理函数
 	function handleItemMouseEnter(
-		type: 'search' | 'season',
-		data: SearchResultItem | BangumiSeasonInfo,
+		type: 'search',
+		data: SearchResultItem,
 		event: MouseEvent
 	) {
 		hoveredItem = { type, data };
@@ -914,18 +897,6 @@
 	}
 
 	function handleMouseLeave() {
-		handleItemMouseLeave();
-	}
-
-	function handleSeasonMouseEnter(season: BangumiSeasonInfo, event: MouseEvent) {
-		handleItemMouseEnter('season', season, event);
-	}
-
-	function handleSeasonMouseMove(event: MouseEvent) {
-		handleItemMouseMove(event);
-	}
-
-	function handleSeasonMouseLeave() {
 		handleItemMouseLeave();
 	}
 
@@ -1384,9 +1355,6 @@
 				case 'following':
 					itemName = item.name;
 					break;
-				case 'bangumi':
-					itemName = item.season_title || item.title || item.full_title;
-					break;
 			}
 
 			batchSelectedItems.set(itemKey, {
@@ -1610,8 +1578,6 @@
 				return 'favorite';
 			case 'collection':
 				return 'collection';
-			case 'bangumi':
-				return 'bangumi';
 			default:
 				return sourceType;
 		}
@@ -1649,7 +1615,7 @@
 		<div class="bg-card rounded-lg border p-6 shadow-sm">
 			<div class="mb-6 flex items-center justify-between">
 				<h1 class="text-2xl font-bold">添加新视频源</h1>
-				{#if sourceType !== 'bangumi' && sourceType !== 'watch_later'}
+				{#if sourceType !== 'watch_later'}
 					<Button
 						variant={batchMode ? 'default' : 'outline'}
 						size="sm"
@@ -1710,8 +1676,6 @@
 												搜索UP主
 											{:else if sourceType === 'submission'}
 												搜索UP主
-											{:else if sourceType === 'bangumi'}
-												搜索番剧
 											{:else}
 												搜索B站内容
 											{/if}
@@ -1987,11 +1951,7 @@
 								bind:value={name}
 								placeholder="请输入视频源名称"
 								required
-								disabled={isMergingBangumi}
 							/>
-							{#if isMergingBangumi}
-								<p class="text-xs text-purple-600">合并时自动沿用目标番剧源的名称</p>
-							{/if}
 						</div>
 
 						<!-- 保存路径 -->
@@ -2002,13 +1962,8 @@
 								bind:value={path}
 								placeholder="例如：D:/Videos/Bilibili"
 								required
-								disabled={isMergingBangumi}
 							/>
-							{#if isMergingBangumi}
-								<p class="text-xs text-purple-600">合并时自动沿用目标番剧源的保存路径</p>
-							{:else}
-								<p class="text-muted-foreground text-sm">请输入绝对路径</p>
-							{/if}
+							<p class="text-muted-foreground text-sm">请输入绝对路径</p>
 						</div>
 
 						<!-- 提交按钮 -->
@@ -2162,13 +2117,6 @@
 														{/if}
 														<!-- 显示已存在标记 -->
 														{#if sourceType === 'submission' && result.mid && isSubmissionExists(Number(result.mid))}
-															<span
-																class="flex-shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-700 dark:bg-gray-800 dark:text-gray-300"
-															>
-																已添加
-															</span>
-														{/if}
-														{#if isBangumiExisting}
 															<span
 																class="flex-shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-700 dark:bg-gray-800 dark:text-gray-300"
 															>
@@ -2729,173 +2677,6 @@
 					</div>
 				{/if}
 
-				<!-- 番剧季度选择区域（移动到右侧） -->
-				{#if sourceType === 'bangumi' && sourceId && !downloadAllSeasons && bangumiSeasons.length > 1}
-					<div class={isMobile ? 'mt-6 w-full' : 'flex-1'}>
-						<div
-							class="bg-card rounded-lg border {isMobile
-								? ''
-								: 'h-full'} flex flex-col overflow-hidden {isMobile
-								? ''
-								: 'sticky top-6'} max-h-[calc(100vh-200px)]"
-						>
-							<div
-								class="flex items-center justify-between border-b bg-purple-50 p-4 dark:bg-purple-950"
-							>
-								<div>
-									<span class="text-base font-medium text-purple-800 dark:text-purple-200"
-										>选择要下载的季度</span
-									>
-									<span
-										class="text-sm text-purple-600 dark:text-purple-400 {isMobile
-											? 'block'
-											: 'ml-2'}"
-									>
-										{#if loadingSeasons}
-											正在加载...
-										{:else if bangumiSeasons.length > 0}
-											共 {bangumiSeasons.length} 个相关季度
-										{:else}
-											暂无季度信息
-										{/if}
-									</span>
-								</div>
-								{#if selectedSeasons.length > 0}
-									<span
-										class="rounded bg-purple-100 px-2 py-1 text-xs text-purple-700 dark:bg-purple-900 dark:text-purple-300"
-									>
-										已选择 {selectedSeasons.length} 个
-										{#if selectedSeasons.length === bangumiSeasons.length}
-											（全部）
-										{/if}
-									</span>
-								{/if}
-							</div>
-
-							<div class="flex-1 overflow-hidden p-3">
-								{#if loadingSeasons}
-									<div class="p-4 text-center">
-										<div class="text-sm text-purple-700 dark:text-purple-300">
-											正在加载季度信息...
-										</div>
-									</div>
-								{:else if bangumiSeasons.length > 0}
-									<div class="seasons-grid-container">
-										<div
-											class="grid gap-4 {isMobile ? 'grid-cols-1' : ''}"
-											style={isMobile
-												? ''
-												: 'grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));'}
-										>
-											{#each filteredBangumiSeasons as season, i (season.season_id)}
-												<div
-													role="button"
-													tabindex="0"
-													class="relative rounded-lg border p-4 transition-all duration-300 {season.isExisting
-														? 'cursor-not-allowed bg-gray-50 opacity-60 dark:bg-gray-800'
-														: 'transform cursor-pointer hover:scale-102 hover:bg-purple-50 hover:shadow-md dark:hover:bg-purple-900'} {isMobile
-														? 'h-auto'
-														: 'h-[120px]'}"
-													onmouseenter={(e) =>
-														!season.isExisting && handleSeasonMouseEnter(season, e)}
-													onmouseleave={!season.isExisting ? handleSeasonMouseLeave : undefined}
-													onmousemove={!season.isExisting ? handleSeasonMouseMove : undefined}
-													onclick={() =>
-														!season.isExisting && toggleSeasonSelection(season.season_id)}
-													onkeydown={(e) =>
-														!season.isExisting &&
-														(e.key === 'Enter' || e.key === ' ') &&
-														toggleSeasonSelection(season.season_id)}
-													transition:fly={{ y: 50, duration: 300, delay: i * 100 }}
-													animate:flip={{ duration: 300 }}
-												>
-													<div class="flex gap-3 {isMobile ? '' : 'h-full'}">
-														{#if season.cover}
-															<img
-																src={processBilibiliImageUrl(season.cover)}
-																alt={season.season_title || season.title}
-																class="h-20 w-14 flex-shrink-0 rounded object-cover"
-																onerror={handleImageError}
-																loading="lazy"
-																crossorigin="anonymous"
-																referrerpolicy="no-referrer"
-															/>
-														{:else}
-															<div
-																class="bg-muted text-muted-foreground flex h-20 w-14 flex-shrink-0 items-center justify-center rounded text-xs"
-															>
-																无封面
-															</div>
-														{/if}
-														<div class="min-w-0 flex-1">
-															<div class="absolute top-3 right-3">
-																<input
-																	type="checkbox"
-																	id="season-{season.season_id}"
-																	checked={selectedSeasons.includes(season.season_id)}
-																	disabled={season.isExisting}
-																	onchange={() => toggleSeasonSelection(season.season_id)}
-																	class="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500 {season.isExisting
-																		? 'cursor-not-allowed opacity-50'
-																		: ''}"
-																/>
-															</div>
-															<!-- 右下角集数标签 -->
-															{#if season.episode_count}
-																<div class="absolute right-3 bottom-3">
-																	<span
-																		class="rounded bg-purple-100 px-1.5 py-0.5 text-xs text-purple-700 dark:bg-purple-900 dark:text-purple-300"
-																		>{season.episode_count}集</span
-																	>
-																</div>
-															{/if}
-															<label for="season-{season.season_id}" class="cursor-pointer">
-																<h4 class="truncate pr-6 text-sm font-medium">
-																	{season.full_title || season.season_title || season.title}
-																</h4>
-																{#if season.season_id === sourceId}
-																	<span
-																		class="mt-1 inline-block rounded bg-purple-100 px-1.5 py-0.5 text-xs text-purple-700 dark:bg-purple-900 dark:text-purple-300"
-																		>当前</span
-																	>
-																{/if}
-																{#if season.isExisting}
-																	<span
-																		class="mt-1 ml-1 inline-block rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-700 dark:bg-gray-800 dark:text-gray-300"
-																		>已添加</span
-																	>
-																{/if}
-																<p class="text-muted-foreground mt-1 text-xs">
-																	Season ID: {season.season_id}
-																</p>
-																{#if season.media_id}
-																	<p class="text-muted-foreground text-xs">
-																		Media ID: {season.media_id}
-																	</p>
-																{/if}
-															</label>
-														</div>
-													</div>
-												</div>
-											{/each}
-										</div>
-									</div>
-									{#if !loadingSeasons && bangumiSeasons.length > 0}
-										<p class="mt-3 text-center text-xs text-purple-600">
-											不选择则仅下载{isMobile ? '上方' : '左侧'}输入的当前季度
-										</p>
-									{/if}
-								{:else if sourceId}
-									<div class="p-4 text-center">
-										<div class="text-muted-foreground text-sm">暂无季度信息</div>
-										<div class="text-muted-foreground mt-1 text-xs">请检查Season ID是否正确</div>
-									</div>
-								{/if}
-							</div>
-						</div>
-					</div>
-				{/if}
-
 				<!-- 订阅的合集列表（仅合集类型时显示） -->
 				{#if sourceType === 'collection' && subscribedCollections.length > 0}
 					<div class={isMobile ? 'mt-6 w-full' : 'flex-1'}>
@@ -3421,18 +3202,14 @@
 					<img
 						src={processBilibiliImageUrl(hoveredItem.data.cover)}
 						alt={hoveredItem.data.title}
-						class="{sourceType === 'bangumi'
-							? 'h-32 w-24'
-							: 'h-20 w-32'} flex-shrink-0 rounded object-cover"
+						class="h-20 w-32 flex-shrink-0 rounded object-cover"
 						loading="lazy"
 						crossorigin="anonymous"
 						referrerpolicy="no-referrer"
 					/>
 				{:else}
 					<div
-						class="{sourceType === 'bangumi'
-							? 'h-32 w-24'
-							: 'h-20 w-32'} bg-muted text-muted-foreground flex flex-shrink-0 items-center justify-center rounded text-sm"
+						class="h-20 w-32 bg-muted text-muted-foreground flex flex-shrink-0 items-center justify-center rounded text-sm"
 					>
 						无图片
 					</div>
@@ -3489,82 +3266,8 @@
 									: hoveredItem.data.danmaku}
 							</span>
 						{/if}
-						{#if sourceType === 'bangumi' && hoveredItem.data.season_id}
-							<span class="text-muted-foreground">Season ID: {hoveredItem.data.season_id}</span>
-						{/if}
 						{#if hoveredItem.data.bvid}
 							<span class="text-muted-foreground">BV号: {hoveredItem.data.bvid}</span>
-						{/if}
-					</div>
-				</div>
-			</div>
-		{:else if hoveredItem.type === 'season'}
-			<!-- 季度选择详情内容 -->
-			<div class="flex gap-4">
-				{#if hoveredItem.data.cover}
-					<img
-						src={processBilibiliImageUrl(hoveredItem.data.cover)}
-						alt={hoveredItem.data.season_title || hoveredItem.data.title}
-						class="h-32 w-24 flex-shrink-0 rounded object-cover"
-						loading="lazy"
-						crossorigin="anonymous"
-						referrerpolicy="no-referrer"
-					/>
-				{:else}
-					<div
-						class="bg-muted text-muted-foreground flex h-32 w-24 flex-shrink-0 items-center justify-center rounded text-sm"
-					>
-						无封面
-					</div>
-				{/if}
-				<div class="min-w-0 flex-1">
-					<div class="mb-1 flex items-center gap-2">
-						<h4 class="flex-1 text-sm font-semibold">
-							{hoveredItem.data.full_title ||
-								hoveredItem.data.season_title ||
-								hoveredItem.data.title}
-						</h4>
-						<span
-							class="flex-shrink-0 rounded bg-purple-100 px-1.5 py-0.5 text-xs text-purple-700 dark:bg-purple-900 dark:text-purple-300"
-						>
-							番剧
-						</span>
-					</div>
-
-					<div class="space-y-2 text-xs">
-						{#if hoveredItem.data.description}
-							<div class="text-foreground mb-3 line-clamp-3 text-sm leading-relaxed">
-								{hoveredItem.data.description}
-							</div>
-						{/if}
-
-						<div class="flex flex-wrap gap-3">
-							<span class="text-muted-foreground"
-								>Season ID: <span class="font-mono text-gray-800 dark:text-gray-200"
-									>{hoveredItem.data.season_id}</span
-								></span
-							>
-							{#if hoveredItem.data.media_id}
-								<span class="text-muted-foreground"
-									>Media ID: <span class="font-mono text-gray-800 dark:text-gray-200"
-										>{hoveredItem.data.media_id}</span
-									></span
-								>
-							{/if}
-						</div>
-
-						{#if hoveredItem.data.episode_count}
-							<div class="text-muted-foreground flex items-center gap-1">
-								<span>📺</span> 总集数：{hoveredItem.data.episode_count} 集
-							</div>
-						{/if}
-
-						{#if hoveredItem.data.season_id === sourceId}
-							<div class="font-medium text-purple-600">🎯 当前选择的季度</div>
-						{/if}
-
-						{#if selectedSeasons.includes(hoveredItem.data.season_id)}
-							<div class="font-medium text-green-600">✅ 已选择下载</div>
 						{/if}
 					</div>
 				</div>
@@ -3619,9 +3322,7 @@
 											? '收藏夹'
 											: item.type === 'following'
 												? 'UP主'
-												: item.type === 'bangumi'
-													? '番剧'
-													: item.type}
+												: item.type}
 								</span>
 							</div>
 						{/each}
