@@ -12,9 +12,6 @@
 		UserFavoriteFolder,
 		UserCollectionItem,
 		UserFollowing,
-		BangumiSeasonInfo,
-		BangumiSourceOption,
-		BangumiSourceListResponse,
 		ValidateFavoriteResponse,
 		UserCollectionInfo,
 		AddVideoSourceRequest
@@ -70,29 +67,12 @@
 	let userFollowings: UserFollowing[] = [];
 	let loadingFollowings = false;
 
-	// 番剧季度相关
-	let bangumiSeasons: BangumiSeasonInfo[] = [];
-	let loadingSeasons = false;
-	let selectedSeasons: string[] = [];
-	let seasonIdTimeout: ReturnType<typeof setTimeout> | null = null;
-
-	// 番剧合并相关
-	let existingBangumiSources: BangumiSourceOption[] = [];
-	let loadingBangumiSources = false;
-	let mergeToSourceId: number | null = null;
-	let showMergeOptions = false;
-	let cachedNameBeforeMerge = '';
-	let cachedPathBeforeMerge = '';
-	let isUsingMergedSourceMeta = false;
-
 	// 过滤已有视频源相关
 	let existingVideoSources: VideoSourcesResponse | null = null;
 	let existingCollectionIds: Set<string> = new Set();
 	let existingFavoriteIds: Set<number> = new Set();
 	let existingSubmissionIds: Set<number> = new Set();
-	let existingBangumiSeasonIds: Set<string> = new Set();
 	let loadingExistingSources = false;
-	let isMergingBangumi = false;
 
 	// 批量添加相关
 	let batchMode = false; // 是否为批量模式
@@ -135,8 +115,7 @@
 			description: '可添加任何公开收藏夹，收藏夹ID可在收藏夹页面URL中获取'
 		},
 		{ value: 'submission', label: 'UP主投稿', description: 'UP主ID可在UP主空间URL中获取' },
-		{ value: 'watch_later', label: '稍后观看', description: '同步稍后观看列表' },
-		{ value: 'bangumi', label: '番剧', description: '番剧season_id可在番剧页面URL中获取' }
+		{ value: 'watch_later', label: '稍后观看', description: '同步稍后观看列表' }
 	];
 
 	// 合集类型选项
@@ -196,26 +175,6 @@
 		clearTimeout(favoriteValidationTimeout);
 	});
 
-	$: isMergingBangumi = sourceType === 'bangumi' && mergeToSourceId !== null;
-
-	$: {
-		if (isMergingBangumi) {
-			const targetSource = existingBangumiSources.find((source) => source.id === mergeToSourceId);
-			if (targetSource) {
-				if (!isUsingMergedSourceMeta) {
-					cachedNameBeforeMerge = name;
-					cachedPathBeforeMerge = path;
-				}
-				name = targetSource.name;
-				path = targetSource.path;
-				isUsingMergedSourceMeta = true;
-			}
-		} else if (isUsingMergedSourceMeta) {
-			name = cachedNameBeforeMerge;
-			path = cachedPathBeforeMerge;
-			isUsingMergedSourceMeta = false;
-		}
-	}
 
 	// 搜索B站内容
 	async function handleSearch(overrideSearchType?: string) {
@@ -225,18 +184,15 @@
 		}
 
 		// 根据参数或当前选择的视频源类型确定搜索类型
-		let searchType: 'video' | 'bili_user' | 'media_bangumi';
+		let searchType: 'video' | 'bili_user';
 		if (overrideSearchType) {
-			searchType = overrideSearchType as 'video' | 'bili_user' | 'media_bangumi';
+			searchType = overrideSearchType as 'video' | 'bili_user';
 		} else {
 			switch (sourceType) {
 				case 'collection':
 				case 'submission':
 				case 'favorite': // 收藏夹类型也搜索UP主
 					searchType = 'bili_user';
-					break;
-				case 'bangumi':
-					searchType = 'media_bangumi';
 					break;
 				default:
 					searchType = 'video';
@@ -249,8 +205,7 @@
 		searchTotalResults = 0;
 
 		try {
-			// 针对番剧搜索，需要更多页面因为每页实际只有25+25=50个结果但分配可能不均
-			const pageSize = searchType === 'media_bangumi' ? 100 : 50;
+			const pageSize = 50;
 
 			// 第一次请求获取总数
 			const firstResult = await api.searchBilibili({
@@ -346,12 +301,6 @@
 					selectedUpName = cleanTitle(result.title);
 					// 打开投稿选择对话框
 					showSubmissionSelection = true;
-				}
-				break;
-			case 'bangumi':
-				if (result.season_id) {
-					sourceId = result.season_id;
-					name = cleanTitle(result.title);
 				}
 				break;
 			case 'favorite':
@@ -470,17 +419,6 @@
 				}
 			}
 
-			if (sourceType === 'bangumi') {
-				params.download_all_seasons = downloadAllSeasons;
-				// 如果选择了特定季度，添加selected_seasons参数
-				if (selectedSeasons.length > 0 && !downloadAllSeasons) {
-					params.selected_seasons = selectedSeasons;
-				}
-				// 如果选择了合并到现有番剧源，添加merge_to_source_id参数
-				if (mergeToSourceId) {
-					params.merge_to_source_id = mergeToSourceId;
-				}
-			}
 
 			if (sourceType === 'submission') {
 				// 如果有选择的视频，添加selected_videos参数
@@ -498,15 +436,10 @@
 				upId = '';
 				name = '';
 				path = '/Downloads';
-				downloadAllSeasons = false;
 				collectionType = 'season';
 				isManualInput = false;
-				bangumiSeasons = [];
-				selectedSeasons = [];
 				selectedVideos = [];
 				selectedUpName = '';
-				mergeToSourceId = null;
-				existingBangumiSources = [];
 				// 跳转到视频源管理页面
 				goto('/video-sources');
 			} else {
@@ -521,10 +454,7 @@
 
 			if (errorMessage.includes('已存在')) {
 				// 重复添加错误
-				if (sourceType === 'bangumi') {
-					errorDescription =
-						'该番剧已经添加过了，请检查是否使用了相同的Season ID、Media ID或Episode ID';
-				} else if (sourceType === 'collection') {
+				if (sourceType === 'collection') {
 					errorDescription = '该合集已经添加过了，请检查是否使用了相同的合集ID和UP主ID';
 				} else if (sourceType === 'favorite') {
 					errorDescription = '该收藏夹已经添加过了，请检查是否使用了相同的收藏夹ID';
@@ -794,58 +724,6 @@
 		}
 	}
 
-	// 获取番剧季度信息
-	async function fetchBangumiSeasons() {
-		if (!sourceId.trim() || sourceType !== 'bangumi') return;
-
-		loadingSeasons = true;
-		try {
-			const result = await api.getBangumiSeasons(sourceId);
-			if (result.data && result.data.success) {
-				bangumiSeasons = result.data.data || [];
-				// 默认选中当前季度
-				if (bangumiSeasons.length > 0) {
-					const currentSeason = bangumiSeasons.find((s) => s.season_id === sourceId);
-					if (currentSeason) {
-						selectedSeasons = [currentSeason.season_id];
-					}
-				}
-				// 如果只有一个季度，自动选中它
-				if (bangumiSeasons.length === 1) {
-					selectedSeasons = [bangumiSeasons[0].season_id];
-				}
-			} else {
-				bangumiSeasons = [];
-			}
-		} catch (error: unknown) {
-			console.error('获取季度信息失败:', error);
-			const errorMessage = error instanceof Error ? error.message : '获取季度信息失败';
-			toast.error('获取季度信息失败', { description: errorMessage });
-			bangumiSeasons = [];
-			selectedSeasons = [];
-		} finally {
-			loadingSeasons = false;
-		}
-	}
-
-	// 获取现有番剧源列表（用于合并选择）
-	async function fetchExistingBangumiSources() {
-		loadingBangumiSources = true;
-		try {
-			const result = await api.getBangumiSourcesForMerge();
-			if (result.data && result.data.success) {
-				existingBangumiSources = result.data.bangumi_sources;
-			} else {
-				existingBangumiSources = [];
-			}
-		} catch (error) {
-			console.error('获取现有番剧源失败:', error);
-			existingBangumiSources = [];
-		} finally {
-			loadingBangumiSources = false;
-		}
-	}
-
 	// 加载已有视频源（用于过滤）
 	async function loadExistingVideoSources() {
 		loadingExistingSources = true;
@@ -879,35 +757,6 @@
 					}
 				});
 
-				// 处理番剧（主季度ID + 已选择的季度ID）
-				existingBangumiSeasonIds.clear();
-				result.data.bangumi?.forEach((b) => {
-					if (b.season_id) {
-						existingBangumiSeasonIds.add(b.season_id.toString());
-					}
-					// 如果有已选择的季度，也加入到过滤列表中
-					if (b.selected_seasons) {
-						try {
-							// 检查 selected_seasons 是字符串还是已经解析的数组
-							let selectedSeasons;
-							if (typeof b.selected_seasons === 'string') {
-								selectedSeasons = JSON.parse(b.selected_seasons);
-							} else {
-								selectedSeasons = b.selected_seasons;
-							}
-
-							if (Array.isArray(selectedSeasons)) {
-								selectedSeasons.forEach((seasonId) => {
-									// 确保统一转换为字符串进行比较
-									const seasonIdStr = seasonId.toString();
-									existingBangumiSeasonIds.add(seasonIdStr);
-								});
-							}
-						} catch (e) {
-							console.warn('解析selected_seasons失败:', b.selected_seasons, e);
-						}
-					}
-				});
 			}
 		} catch (error) {
 			console.error('加载已有视频源失败:', error);
@@ -932,30 +781,6 @@
 		return existingFavoriteIds.has(fId);
 	}
 
-	// 检查番剧季度是否已存在
-	function isBangumiSeasonExists(seasonId: string): boolean {
-		return existingBangumiSeasonIds.has(seasonId.toString());
-	}
-
-	// 切换季度选择
-	function toggleSeasonSelection(seasonId: string) {
-		// 检查季度是否已存在
-		if (isBangumiSeasonExists(seasonId)) {
-			const seasonName =
-				filteredBangumiSeasons.find((s) => s.season_id === seasonId)?.season_title || '该季度';
-			toast.error('季度已存在', {
-				description: `${seasonName}已经添加过了`
-			});
-			return;
-		}
-
-		const index = selectedSeasons.indexOf(seasonId);
-		if (index === -1) {
-			selectedSeasons = [...selectedSeasons, seasonId];
-		} else {
-			selectedSeasons = selectedSeasons.filter((id) => id !== seasonId);
-		}
-	}
 
 	// 过滤后的收藏夹列表（未添加的排在前面，已添加的排在后面）
 	$: filteredUserFavorites = (() => {
@@ -1008,24 +833,6 @@
 		return searchResults;
 	})();
 
-	// 过滤后的番剧季度列表（标记已存在的季度）
-	$: filteredBangumiSeasons = bangumiSeasons.map((season) => ({
-		...season,
-		isExisting: isBangumiSeasonExists(season.season_id)
-	}));
-
-	// 监听sourceType变化，清理季度相关状态
-	$: if (sourceType !== 'bangumi') {
-		bangumiSeasons = [];
-		selectedSeasons = [];
-		showMergeOptions = false;
-		mergeToSourceId = null;
-	}
-
-	// 当源类型改为番剧时，获取现有番剧源列表
-	$: if (sourceType === 'bangumi') {
-		fetchExistingBangumiSources();
-	}
 
 	// 监听sourceType变化，重置手动输入标志和清空所有缓存
 	$: if (sourceType) {
@@ -1542,8 +1349,6 @@
 				return 'favorite';
 			case 'collection':
 				return 'collection';
-			case 'bangumi':
-				return 'bangumi';
 			default:
 				return sourceType;
 		}
@@ -1840,8 +1645,6 @@
 				return (item.data.fid || item.data.id).toString();
 			case 'collection':
 				return item.data.sid.toString();
-			case 'bangumi':
-				return item.data.season_id || '';
 			default:
 				return '';
 		}
