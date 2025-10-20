@@ -217,10 +217,10 @@ pub async fn refresh_video_source<'a>(
         for video_info in &videos_info {
             let (title, bvid, upper_name, episode_num) = match video_info {
                 VideoInfo::Detail { title, bvid, upper, .. } => {
-                    (title.clone(), bvid.clone(), upper.name.clone(), None)
+                    (title.clone(), bvid.clone(), upper.name.clone(), None::<i32>)
                 }
                 VideoInfo::Favorite { title, bvid, upper, .. } => {
-                    (title.clone(), bvid.clone(), upper.name.clone(), None)
+                    (title.clone(), bvid.clone(), upper.name.clone(), None::<i32>)
                 }
                 VideoInfo::Collection { title, bvid, arc, .. } => {
                     // 从arc字段中提取upper信息
@@ -229,14 +229,14 @@ pub async fn refresh_video_source<'a>(
                         .and_then(|a| a["author"]["name"].as_str())
                         .unwrap_or("未知")
                         .to_string();
-                    (title.clone(), bvid.clone(), upper_name, None)
+                    (title.clone(), bvid.clone(), upper_name, None::<i32>)
                 }
                 VideoInfo::WatchLater { title, bvid, upper, .. } => {
-                    (title.clone(), bvid.clone(), upper.name.clone(), None)
+                    (title.clone(), bvid.clone(), upper.name.clone(), None::<i32>)
                 }
                 VideoInfo::Submission { title, bvid, .. } => {
                     // Submission 没有 upper 信息，使用默认值
-                    (title.clone(), bvid.clone(), "未知".to_string(), None)
+                    (title.clone(), bvid.clone(), "未知".to_string(), None::<i32>)
                 }
             };
             temp_video_infos.push((title, bvid, upper_name, episode_num));
@@ -657,7 +657,6 @@ pub async fn download_unprocessed_videos(
     }
 
     let mut assigned_upper = HashSet::new();
-    let mut assigned_bangumi_seasons = HashSet::new();
     let tasks = unhandled_videos_pages
         .into_iter()
         .map(|(video_model, pages_model)| {
@@ -776,7 +775,6 @@ pub async fn retry_failed_videos_once(
     let current_config = crate::config::reload_config();
     let semaphore = Semaphore::new(current_config.concurrent_limit.video);
     let mut assigned_upper = HashSet::new();
-    let mut assigned_bangumi_seasons = HashSet::new();
 
     let tasks = failed_videos_pages
         .into_iter()
@@ -1277,12 +1275,6 @@ pub async fn download_video_pages(
     } else {
         None
     };
-
-    // 番剧相关功能已移除
-    let season_nfo_result = Ok(ExecutionStatus::Skipped);
-
-    // 番剧相关功能已移除
-    let season_images_result = Some(ExecutionStatus::Skipped);
 
     let (res_1, res_2, res_3, res_4, res_5) = tokio::join!(
         // 下载视频封面（普通视频）

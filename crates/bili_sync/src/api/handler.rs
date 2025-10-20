@@ -5332,6 +5332,7 @@ async fn rename_existing_files(
         // 检查视频类型，决定是否需要重命名
         let is_single_page = video.single_page.unwrap_or(true);
         let is_collection = video.collection_id.is_some();
+        let is_bangumi = video.source_type == Some(1);
 
         // 根据视频类型和配置更新情况决定是否跳过
         let should_process_video = if is_collection {
