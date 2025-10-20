@@ -3,6 +3,7 @@
 	import AppSidebar from '$lib/components/app-sidebar.svelte';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
 	import { Toaster } from '$lib/components/ui/sonner/index.js';
 	import { breadcrumbStore } from '$lib/stores/breadcrumb';
 	import BreadCrumb from '$lib/components/bread-crumb.svelte';
@@ -18,6 +19,15 @@
 
 	let dataLoaded = false;
 	let isAuthenticated = false;
+
+	// 监听路由变化，确保内容渲染
+	let currentPath = '';
+	$: {
+		// 当路由改变时，强制重新评估渲染条件
+		if ($page.url.pathname !== currentPath) {
+			currentPath = $page.url.pathname;
+		}
+	}
 
 	// 退出登录
 	function handleLogout() {
@@ -124,7 +134,9 @@
 						</div>
 					{/if}
 					{#if dataLoaded}
-						<slot />
+						{#key currentPath}
+							<slot />
+						{/key}
 					{/if}
 				</div>
 			</div>
