@@ -32,12 +32,6 @@ pub use crate::config::manager::ConfigManager;
 //     pub path: PathBuf,
 //     #[serde(default = "default_download_all_seasons")]
 //     pub download_all_seasons: bool,
-//     /// 番剧专用的 video_name 模板，如果未设置则使用全局配置
-//     #[serde(default)]
-//     pub video_name: Option<String>,
-//     /// 番剧专用的 page_name 模板，如果未设置则使用全局 bangumi_name 配置
-//     #[serde(default)]
-//     pub page_name: Option<String>,
 // }
 
 // #[derive(Serialize, Deserialize, Default, Debug, Clone)]
@@ -500,21 +494,6 @@ impl Config {
         //     if !path.is_absolute() {
         //         ok = false;
         //         error!("{:?} 保存的路径应为绝对路径，检测到: {}", args, path.display());
-        //     }
-        // }
-        // // 检查番剧配置的路径
-        // for bangumi in &self.bangumi {
-        //     if !bangumi.path.is_absolute() {
-        //         ok = false;
-        //         let season_id_display = match &bangumi.season_id {
-        //             Some(id) => id.clone(),
-        //             None => "未知".to_string(),
-        //         };
-        //         error!(
-        //             "番剧 {} 保存的路径应为绝对路径，检测到: {}",
-        //             season_id_display,
-        //             bangumi.path.display()
-        //         );
         //     }
         // }
 

@@ -1732,7 +1732,7 @@ pub async fn download_page(
             }
         }
     } else if !is_single_page {
-        // 对于多P视频（非番剧），使用最新配置中的multi_page_name模板
+        // 对于多P视频，使用最新配置中的multi_page_name模板
         let page_args = page_format_args(video_model, &page_model);
         match crate::config::with_config(|bundle| bundle.render_multi_page_template(&page_args)) {
             Ok(rendered) => rendered,

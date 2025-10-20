@@ -72,7 +72,7 @@ pub struct NFOConfig {
     /// 默认制作公司（当视频信息中没有时使用）
     #[serde(default = "default_default_studio")]
     pub default_studio: String,
-    /// 番剧默认播出状态
+    /// 剧集默认播出状态
     #[serde(default = "default_tvshow_status")]
     pub default_tvshow_status: String,
     /// 空UP主信息处理策略

@@ -126,13 +126,6 @@ async fn count_all_video_sources(
     let watch_later_count = entities::watch_later::Entity::find().count(connection.as_ref()).await?;
     total_count += watch_later_count as usize;
 
-    // 统计番剧源
-    let bangumi_count = entities::video_source::Entity::find()
-        .filter(entities::video_source::Column::Type.eq(1))
-        .count(connection.as_ref())
-        .await?;
-    total_count += bangumi_count as usize;
-
     Ok(total_count)
 }
 
@@ -141,9 +134,9 @@ async fn init_all_sources(
     config: &Config,
     connection: &Arc<DatabaseConnection>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    // 初始化番剧源
+    // 初始化视频源
     if let Err(e) = initialization::init_sources(config, connection.as_ref()).await {
-        error!("初始化番剧源失败: {}", e);
+        error!("初始化视频源失败: {}", e);
         return Err(e.into());
     }
 
