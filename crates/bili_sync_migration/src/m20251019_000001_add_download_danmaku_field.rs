@@ -6,163 +6,70 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        let db = manager.get_connection();
+
         // 为各种视频源表添加 download_danmaku 字段
+        // 使用容错方式，如果字段已存在则跳过
 
         // 合集表
-        manager
-            .alter_table(
-                Table::alter()
-                    .table(Collection::Table)
-                    .add_column(
-                        ColumnDef::new(Collection::DownloadDanmaku)
-                            .boolean()
-                            .not_null()
-                            .default(false),
-                    )
-                    .to_owned(),
+        let _ = db
+            .execute_unprepared(
+                "ALTER TABLE collection ADD COLUMN download_danmaku BOOLEAN NOT NULL DEFAULT 0",
             )
-            .await?;
+            .await;
 
         // 收藏夹表
-        manager
-            .alter_table(
-                Table::alter()
-                    .table(Favorite::Table)
-                    .add_column(
-                        ColumnDef::new(Favorite::DownloadDanmaku)
-                            .boolean()
-                            .not_null()
-                            .default(false),
-                    )
-                    .to_owned(),
+        let _ = db
+            .execute_unprepared(
+                "ALTER TABLE favorite ADD COLUMN download_danmaku BOOLEAN NOT NULL DEFAULT 0",
             )
-            .await?;
+            .await;
 
         // 投稿表
-        manager
-            .alter_table(
-                Table::alter()
-                    .table(Submission::Table)
-                    .add_column(
-                        ColumnDef::new(Submission::DownloadDanmaku)
-                            .boolean()
-                            .not_null()
-                            .default(false),
-                    )
-                    .to_owned(),
+        let _ = db
+            .execute_unprepared(
+                "ALTER TABLE submission ADD COLUMN download_danmaku BOOLEAN NOT NULL DEFAULT 0",
             )
-            .await?;
+            .await;
 
         // 稍后观看表
-        manager
-            .alter_table(
-                Table::alter()
-                    .table(WatchLater::Table)
-                    .add_column(
-                        ColumnDef::new(WatchLater::DownloadDanmaku)
-                            .boolean()
-                            .not_null()
-                            .default(false),
-                    )
-                    .to_owned(),
+        let _ = db
+            .execute_unprepared(
+                "ALTER TABLE watch_later ADD COLUMN download_danmaku BOOLEAN NOT NULL DEFAULT 0",
             )
-            .await?;
+            .await;
 
-        // 视频源表（番剧）
-        manager
-            .alter_table(
-                Table::alter()
-                    .table(VideoSource::Table)
-                    .add_column(
-                        ColumnDef::new(VideoSource::DownloadDanmaku)
-                            .boolean()
-                            .not_null()
-                            .default(false),
-                    )
-                    .to_owned(),
+        // 视频源表
+        let _ = db
+            .execute_unprepared(
+                "ALTER TABLE video_source ADD COLUMN download_danmaku BOOLEAN NOT NULL DEFAULT 0",
             )
-            .await?;
+            .await;
 
         Ok(())
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        let db = manager.get_connection();
+
         // 回滚时删除字段
-        manager
-            .alter_table(
-                Table::alter()
-                    .table(Collection::Table)
-                    .drop_column(Collection::DownloadDanmaku)
-                    .to_owned(),
-            )
-            .await?;
-
-        manager
-            .alter_table(
-                Table::alter()
-                    .table(Favorite::Table)
-                    .drop_column(Favorite::DownloadDanmaku)
-                    .to_owned(),
-            )
-            .await?;
-
-        manager
-            .alter_table(
-                Table::alter()
-                    .table(Submission::Table)
-                    .drop_column(Submission::DownloadDanmaku)
-                    .to_owned(),
-            )
-            .await?;
-
-        manager
-            .alter_table(
-                Table::alter()
-                    .table(WatchLater::Table)
-                    .drop_column(WatchLater::DownloadDanmaku)
-                    .to_owned(),
-            )
-            .await?;
-
-        manager
-            .alter_table(
-                Table::alter()
-                    .table(VideoSource::Table)
-                    .drop_column(VideoSource::DownloadDanmaku)
-                    .to_owned(),
-            )
-            .await?;
+        // 使用容错方式，如果字段不存在则跳过
+        let _ = db
+            .execute_unprepared("ALTER TABLE collection DROP COLUMN download_danmaku")
+            .await;
+        let _ = db
+            .execute_unprepared("ALTER TABLE favorite DROP COLUMN download_danmaku")
+            .await;
+        let _ = db
+            .execute_unprepared("ALTER TABLE submission DROP COLUMN download_danmaku")
+            .await;
+        let _ = db
+            .execute_unprepared("ALTER TABLE watch_later DROP COLUMN download_danmaku")
+            .await;
+        let _ = db
+            .execute_unprepared("ALTER TABLE video_source DROP COLUMN download_danmaku")
+            .await;
 
         Ok(())
     }
-}
-
-#[derive(DeriveIden)]
-enum Collection {
-    Table,
-    DownloadDanmaku,
-}
-
-#[derive(DeriveIden)]
-enum Favorite {
-    Table,
-    DownloadDanmaku,
-}
-
-#[derive(DeriveIden)]
-enum Submission {
-    Table,
-    DownloadDanmaku,
-}
-
-#[derive(DeriveIden)]
-enum WatchLater {
-    Table,
-    DownloadDanmaku,
-}
-
-#[derive(DeriveIden)]
-enum VideoSource {
-    Table,
-    DownloadDanmaku,
 }
