@@ -100,6 +100,26 @@ impl<'a> Submission<'a> {
             let current_config = crate::config::reload_config();
             let config = &current_config.submission_risk_control;
 
+            // 获取latest_row_at用于增量扫描
+            let latest_row_at = if config.enable_incremental_fetch {
+                if let Ok(Some(db)) = get_global_db() {
+                    use bili_sync_entity::submission;
+                    use sea_orm::EntityTrait;
+
+                    submission::Entity::find()
+                        .filter(submission::Column::UpperId.eq(self.upper_id.parse::<i64>().unwrap_or(0)))
+                        .one(&db)
+                        .await
+                        .ok()
+                        .flatten()
+                        .map(|m| m.latest_row_at)
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+
             // 获取上次中断的页码和视频索引
             let (mut page, skip_videos_count) = match self.get_last_processed_checkpoint().await {
                 Ok((saved_page, video_index)) if saved_page > 1 || video_index > 0 => {
@@ -239,6 +259,10 @@ impl<'a> Submission<'a> {
                     .with_context(|| format!("failed to parse videos of upper {} page {}", self.display_name(), page))?;
 
                 debug!("第{}页获取到{}个视频，跳过前{}个", page, videos_info.len(), current_skip_count);
+
+                // 增量扫描：检查是否应该提前终止
+                let mut consecutive_old_videos = 0;
+
                 for (video_index, video_info) in videos_info.into_iter().enumerate() {
                     // 如果是恢复的第一页，跳过已处理的视频
                     if page == resume_page && video_index < current_skip_count {
@@ -254,6 +278,33 @@ impl<'a> Submission<'a> {
                         }
                         return;
                     }
+
+                    // 增量扫描提前终止检查（从第2页开始检查，避免第一页的异常情况）
+                    if page > 1 {
+                        if let Some(ref latest_row_at_str) = latest_row_at {
+                            let beijing_tz = crate::utils::time_format::beijing_timezone();
+                            let video_time = chrono::DateTime::from_timestamp(video_info.created as i64, 0)
+                                .unwrap_or_default()
+                                .with_timezone(&beijing_tz);
+                            let video_time_str = video_time.format("%Y-%m-%d %H:%M:%S").to_string();
+
+                            if video_time_str.as_str() <= latest_row_at_str.as_str() {
+                                consecutive_old_videos += 1;
+                                debug!("检测到旧视频({}/3): {}, 发布时间 {} <= 上次扫描 {}",
+                                    consecutive_old_videos, video_info.title, video_time_str, latest_row_at_str);
+
+                                // 连续3个旧视频，终止扫描
+                                if consecutive_old_videos >= 3 {
+                                    info!("UP主 {} 增量扫描：连续检测到3个旧视频，停止扫描（第{}页）",
+                                        self.display_name(), page);
+                                    return;
+                                }
+                            } else {
+                                consecutive_old_videos = 0;  // 重置计数器
+                            }
+                        }
+                    }
+
                     yield video_info;
                 }
 
