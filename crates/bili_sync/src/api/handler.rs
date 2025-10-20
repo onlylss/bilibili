@@ -773,7 +773,6 @@ pub async fn reset_video(
         ("collection" = Option<i32>, Query, description = "合集ID"),
         ("favorite" = Option<i32>, Query, description = "收藏夹ID"),
         ("submission" = Option<i32>, Query, description = "UP主投稿ID"),
-        ("bangumi" = Option<i32>, Query, description = "番剧ID"),
         ("watch_later" = Option<i32>, Query, description = "稍后观看ID"),
     ),
     responses(
@@ -1913,28 +1912,6 @@ pub async fn update_video_source_enabled_internal(
                 message: format!("稍后观看已{}", if enabled { "启用" } else { "禁用" }),
             }
         }
-        "bangumi" => {
-            let bangumi = video_source::Entity::find_by_id(id)
-                .one(&txn)
-                .await?
-                .ok_or_else(|| anyhow!("未找到指定的番剧"))?;
-
-            video_source::Entity::update(video_source::ActiveModel {
-                id: sea_orm::ActiveValue::Unchanged(id),
-                enabled: sea_orm::Set(enabled),
-                ..Default::default()
-            })
-            .exec(&txn)
-            .await?;
-
-            crate::api::response::UpdateVideoSourceEnabledResponse {
-                success: true,
-                source_id: id,
-                source_type: "bangumi".to_string(),
-                enabled,
-                message: format!("番剧 {} 已{}", bangumi.name, if enabled { "启用" } else { "禁用" }),
-            }
-        }
         _ => {
             return Err(anyhow!("不支持的视频源类型: {}", source_type).into());
         }
@@ -2080,33 +2057,6 @@ pub async fn update_video_source_download_danmaku_internal(
                 deleted_danmaku_count: 0,
                 message: format!(
                     "稍后观看已{}弹幕下载",
-                    if download_danmaku { "开启" } else { "关闭" }
-                ),
-            }
-        }
-        "bangumi" => {
-            let bangumi = video_source::Entity::find_by_id(id)
-                .one(&txn)
-                .await?
-                .ok_or_else(|| anyhow!("未找到指定的番剧"))?;
-
-            video_source::Entity::update(video_source::ActiveModel {
-                id: sea_orm::ActiveValue::Unchanged(id),
-                download_danmaku: sea_orm::Set(download_danmaku),
-                ..Default::default()
-            })
-            .exec(&txn)
-            .await?;
-
-            crate::api::response::UpdateVideoSourceDownloadDanmakuResponse {
-                success: true,
-                source_id: id,
-                source_type: "bangumi".to_string(),
-                download_danmaku,
-                deleted_danmaku_count: 0,
-                message: format!(
-                    "番剧 {} 已{}弹幕下载",
-                    bangumi.name,
                     if download_danmaku { "开启" } else { "关闭" }
                 ),
             }
@@ -3020,139 +2970,6 @@ pub async fn delete_video_source_internal(
                 message: "稍后再看已成功删除".to_string(),
             }
         }
-        "bangumi" => {
-            // 查找要删除的番剧
-            let bangumi = video_source::Entity::find_by_id(id)
-                .one(&txn)
-                .await?
-                .ok_or_else(|| anyhow!("未找到指定的番剧"))?;
-
-            // 获取属于该番剧的视频
-            let videos = video::Entity::find()
-                .filter(video::Column::SourceId.eq(id))
-                .filter(video::Column::SourceType.eq(1)) // 番剧类型
-                .all(&txn)
-                .await?;
-
-            // 清空番剧关联，而不是直接删除视频
-            video::Entity::update_many()
-                .col_expr(
-                    video::Column::SourceId,
-                    sea_orm::sea_query::Expr::value(sea_orm::Value::Int(None)),
-                )
-                .col_expr(
-                    video::Column::SourceType,
-                    sea_orm::sea_query::Expr::value(sea_orm::Value::Int(None)),
-                )
-                .filter(video::Column::SourceId.eq(id))
-                .filter(video::Column::SourceType.eq(1))
-                .exec(&txn)
-                .await?;
-
-            // 找出清空关联后变成孤立的视频（所有源ID都为null）
-            let orphaned_videos = video::Entity::find()
-                .filter(
-                    video::Column::CollectionId
-                        .is_null()
-                        .and(video::Column::FavoriteId.is_null())
-                        .and(video::Column::WatchLaterId.is_null())
-                        .and(video::Column::SubmissionId.is_null())
-                        .and(video::Column::SourceId.is_null()),
-                )
-                .filter(video::Column::Id.is_in(videos.iter().map(|v| v.id)))
-                .all(&txn)
-                .await?;
-
-            // 删除孤立视频的页面数据
-            for video in &orphaned_videos {
-                page::Entity::delete_many()
-                    .filter(page::Column::VideoId.eq(video.id))
-                    .exec(&txn)
-                    .await?;
-            }
-
-            // 删除孤立视频记录
-            if !orphaned_videos.is_empty() {
-                video::Entity::delete_many()
-                    .filter(video::Column::Id.is_in(orphaned_videos.iter().map(|v| v.id)))
-                    .exec(&txn)
-                    .await?;
-            }
-
-            // 如果需要删除本地文件
-            if delete_local_files {
-                let base_path = &bangumi.path;
-                if base_path.is_empty() || base_path == "/" || base_path == "\\" {
-                    warn!("检测到危险路径，跳过删除: {}", base_path);
-                } else {
-                    // 删除番剧相关的季度文件夹，而不是删除整个番剧基础目录
-                    info!("开始删除番剧 {} 的相关文件夹", bangumi.name);
-
-                    // 获取所有相关的视频记录来确定需要删除的具体文件夹
-                    let mut deleted_folders = std::collections::HashSet::new();
-                    let mut total_deleted_size = 0u64;
-
-                    for video in &videos {
-                        // 对于每个视频，删除其对应的文件夹
-                        let video_path = std::path::Path::new(&video.path);
-
-                        if video_path.exists() && !deleted_folders.contains(&video.path) {
-                            match get_directory_size(&video.path) {
-                                Ok(size) => {
-                                    let size_mb = size as f64 / 1024.0 / 1024.0;
-                                    info!("删除番剧季度文件夹: {} (大小: {:.2} MB)", video.path, size_mb);
-
-                                     if let Err(e) = std::fs::remove_dir_all(&video.path) {
-                                         error!("删除番剧季度文件夹失败: {} - {}", video.path, e);
-                                     } else {
-                                         info!("成功删除番剧季度文件夹: {} ({:.2} MB)", video.path, size_mb);
-                                         deleted_folders.insert(video.path.clone());
-                                         total_deleted_size += size;
-                                         
-                                         // 删除后清理空的父目录
-                                         cleanup_empty_parent_dirs(&video.path, base_path);
-                                     }
-                                }
-                                Err(e) => {
-                                    warn!("无法计算文件夹大小: {} - {}", video.path, e);
-                                     if let Err(e) = std::fs::remove_dir_all(&video.path) {
-                                         error!("删除番剧季度文件夹失败: {} - {}", video.path, e);
-                                     } else {
-                                         info!("成功删除番剧季度文件夹: {}", video.path);
-                                         deleted_folders.insert(video.path.clone());
-                                         
-                                         // 删除后清理空的父目录
-                                         cleanup_empty_parent_dirs(&video.path, base_path);
-                                     }
-                                }
-                            }
-                        }
-                    }
-
-                    if !deleted_folders.is_empty() {
-                        let total_size_mb = total_deleted_size as f64 / 1024.0 / 1024.0;
-                        info!(
-                            "番剧 {} 删除完成，共删除 {} 个文件夹，总大小: {:.2} MB",
-                            bangumi.name,
-                            deleted_folders.len(),
-                            total_size_mb
-                        );
-                    } else {
-                        info!("番剧 {} 没有找到需要删除的本地文件夹", bangumi.name);
-                    }
-                }
-            }
-
-            // 删除数据库中的记录
-            video_source::Entity::delete_by_id(id).exec(&txn).await?;
-
-            crate::api::response::DeleteVideoSourceResponse {
-                success: true,
-                source_id: id,
-                source_type: "bangumi".to_string(),
-                message: format!("番剧 {} 已成功删除", bangumi.name),
-            }
-        }
         _ => return Err(anyhow!("不支持的视频源类型: {}", source_type).into()),
     };
 
@@ -3302,32 +3119,6 @@ pub async fn update_video_source_scan_deleted_internal(
                 scan_deleted_videos,
                 message: format!(
                     "稍后观看的扫描已删除视频设置已{}",
-                    if scan_deleted_videos { "启用" } else { "禁用" }
-                ),
-            }
-        }
-        "bangumi" => {
-            let video_source = video_source::Entity::find_by_id(id)
-                .one(&txn)
-                .await?
-                .ok_or_else(|| anyhow!("未找到指定的番剧"))?;
-
-            video_source::Entity::update(video_source::ActiveModel {
-                id: sea_orm::ActiveValue::Unchanged(id),
-                scan_deleted_videos: sea_orm::Set(scan_deleted_videos),
-                ..Default::default()
-            })
-            .exec(&txn)
-            .await?;
-
-            crate::api::response::UpdateVideoSourceScanDeletedResponse {
-                success: true,
-                source_id: id,
-                source_type: "bangumi".to_string(),
-                scan_deleted_videos,
-                message: format!(
-                    "番剧 {} 的扫描已删除视频设置已{}",
-                    video_source.name,
                     if scan_deleted_videos { "启用" } else { "禁用" }
                 ),
             }
@@ -5311,16 +5102,9 @@ async fn rename_existing_files(
     // 分别处理不同类型的视频
     let mut all_videos = Vec::new();
 
-    // 1. 处理非番剧类型的视频（原有逻辑）
     if rename_single_page || rename_multi_page {
         let regular_videos = bili_sync_entity::video::Entity::find()
             .filter(bili_sync_entity::video::Column::DownloadStatus.gt(0))
-            .filter(
-                // 排除番剧类型（source_type=1），包含其他所有类型
-                bili_sync_entity::video::Column::SourceType
-                    .is_null()
-                    .or(bili_sync_entity::video::Column::SourceType.ne(1)),
-            )
             .all(db.as_ref())
             .await?;
         all_videos.extend(regular_videos);
@@ -5332,7 +5116,6 @@ async fn rename_existing_files(
         // 检查视频类型，决定是否需要重命名
         let is_single_page = video.single_page.unwrap_or(true);
         let is_collection = video.collection_id.is_some();
-        let is_bangumi = video.source_type == Some(1);
 
         // 根据视频类型和配置更新情况决定是否跳过
         let should_process_video = if is_collection {
@@ -5344,9 +5127,7 @@ async fn rename_existing_files(
         };
 
         if !should_process_video {
-            let video_type = if is_bangumi {
-                "番剧"
-            } else if is_collection {
+            let video_type = if is_collection {
                 "合集"
             } else if is_single_page {
                 "单P"
@@ -5426,37 +5207,8 @@ async fn rename_existing_files(
         template_data.insert("ctime".to_string(), serde_json::Value::String(formatted_ctime));
 
         // 确定最终的视频文件夹路径
-        let final_video_path = if is_bangumi {
-            // 番剧不重命名视频文件夹，直接使用现有路径
-            let video_path = Path::new(&video.path);
-            if video_path.exists() {
-                video_path.to_path_buf()
-            } else {
-                // 如果路径不存在，尝试智能查找
-                if let Some(parent_dir) = video_path.parent() {
-                    if let Ok(entries) = std::fs::read_dir(parent_dir) {
-                        let mut found_path = None;
-                        for entry in entries.flatten() {
-                            let entry_path = entry.path();
-                            if entry_path.is_dir() {
-                                let dir_name = entry_path.file_name().unwrap_or_default().to_string_lossy();
-                                // 检查是否包含视频的bvid或标题
-                                if dir_name.contains(&video.bvid) || dir_name.contains(&video.name) {
-                                    found_path = Some(entry_path);
-                                    break;
-                                }
-                            }
-                        }
-                        found_path.unwrap_or_else(|| video_path.to_path_buf())
-                    } else {
-                        video_path.to_path_buf()
-                    }
-                } else {
-                    video_path.to_path_buf()
-                }
-            }
-        } else {
-            // 非番剧视频的重命名逻辑（改进的智能重组逻辑）
+        let final_video_path = {
+            // 视频的重命名逻辑
             // 渲染新的视频文件夹名称（使用video_name模板）
             let template_value = serde_json::Value::Object(template_data.clone().into_iter().collect());
             let rendered_name = handlebars
@@ -5632,8 +5384,8 @@ async fn rename_existing_files(
         }
 
         // **新增：处理视频级别的文件重命名（poster、fanart、nfo）**
-        // 只对非番剧的多P视频进行视频级别文件重命名
-        if !is_single_page && !is_bangumi {
+        // 只对多P视频进行视频级别文件重命名
+        if !is_single_page {
             // 多P视频需要重命名视频级别的文件
             let old_video_name = Path::new(&video.path)
                 .file_name()
@@ -5993,7 +5745,7 @@ async fn rename_existing_files(
     path = "/api/search",
     params(
         ("keyword" = String, Query, description = "搜索关键词"),
-        ("search_type" = String, Query, description = "搜索类型：video, bili_user, media_bangumi"),
+        ("search_type" = String, Query, description = "搜索类型：video, bili_user"),
         ("page" = Option<u32>, Query, description = "页码，默认1"),
         ("page_size" = Option<u32>, Query, description = "每页数量，默认20")
     ),
@@ -6007,7 +5759,7 @@ pub async fn search_bilibili(
     use crate::bilibili::{BiliClient, SearchResult};
 
     // 验证搜索类型
-    let valid_types = ["video", "bili_user", "media_bangumi", "media_ft"];
+    let valid_types = ["video", "bili_user"];
     if !valid_types.contains(&params.search_type.as_str()) {
         return Err(anyhow!("不支持的搜索类型，支持的类型: {}", valid_types.join(", ")).into());
     }
@@ -6020,69 +5772,16 @@ pub async fn search_bilibili(
     // 创建 BiliClient，使用空 cookie（搜索不需要登录）
     let bili_client = BiliClient::new(String::new());
 
-    // 特殊处理：当搜索类型为media_bangumi时，同时搜索番剧和影视
-    let mut all_results = Vec::new();
-    let mut total_results = 0u32;
-
-    if params.search_type == "media_bangumi" {
-        // 搜索番剧
-        match bili_client
-            .search(
-                &params.keyword,
-                "media_bangumi",
-                params.page,
-                params.page_size / 2, // 每种类型分配一半的结果数
-            )
-            .await
-        {
-            Ok(bangumi_wrapper) => {
-                all_results.extend(bangumi_wrapper.results);
-                total_results += bangumi_wrapper.total;
-            }
-            Err(e) => {
-                warn!("搜索番剧失败: {}", e);
-            }
+    let (all_results, total_results) = match bili_client
+        .search(&params.keyword, &params.search_type, params.page, params.page_size)
+        .await
+    {
+        Ok(search_wrapper) => (search_wrapper.results, search_wrapper.total),
+        Err(e) => {
+            error!("搜索失败: {}", e);
+            return Err(anyhow!("搜索失败: {}", e).into());
         }
-
-        // 搜索影视
-        match bili_client
-            .search(
-                &params.keyword,
-                "media_ft",
-                params.page,
-                params.page_size / 2, // 每种类型分配一半的结果数
-            )
-            .await
-        {
-            Ok(ft_wrapper) => {
-                all_results.extend(ft_wrapper.results);
-                total_results += ft_wrapper.total;
-            }
-            Err(e) => {
-                warn!("搜索影视失败: {}", e);
-            }
-        }
-
-        // 如果两个搜索都失败了，返回错误
-        if all_results.is_empty() && total_results == 0 {
-            return Err(anyhow!("搜索失败：无法获取番剧或影视结果").into());
-        }
-    } else {
-        // 其他类型正常搜索
-        match bili_client
-            .search(&params.keyword, &params.search_type, params.page, params.page_size)
-            .await
-        {
-            Ok(search_wrapper) => {
-                all_results = search_wrapper.results;
-                total_results = search_wrapper.total;
-            }
-            Err(e) => {
-                error!("搜索失败: {}", e);
-                return Err(anyhow!("搜索失败: {}", e).into());
-            }
-        }
-    }
+    };
 
     // 转换搜索结果格式
     let api_results: Vec<crate::api::response::SearchResult> = all_results
@@ -9449,61 +9148,6 @@ pub async fn get_notification_status() -> Result<ApiResponse<crate::api::respons
     };
 
     Ok(ApiResponse::ok(status))
-}
-
-/// 从番剧标题中提取系列名称
-/// 例如：《灵笼 第二季》第1话 末世桃源 -> 灵笼
-#[allow(dead_code)]
-fn extract_bangumi_series_title(full_title: &str) -> String {
-    // 移除开头的书名号
-    let title = full_title.trim_start_matches('《');
-
-    // 找到书名号结束位置
-    if let Some(end_pos) = title.find('》') {
-        let season_title = &title[..end_pos];
-
-        // 移除季度信息："灵笼 第二季" -> "灵笼"
-        if let Some(space_pos) = season_title.rfind(' ') {
-            // 检查空格后面是否是季度标记
-            let after_space = &season_title[space_pos + 1..];
-            if after_space.starts_with("第") && after_space.ends_with("季") {
-                return season_title[..space_pos].to_string();
-            }
-        }
-        // 如果没有季度信息，返回整个标题
-        return season_title.to_string();
-    }
-
-    // 如果没有书名号，尝试其他模式
-    if let Some(space_pos) = full_title.find(' ') {
-        return full_title[..space_pos].to_string();
-    }
-
-    full_title.to_string()
-}
-
-/// 从番剧标题中提取季度标题
-/// 例如：《灵笼 第二季》第1话 末世桃源 -> 灵笼 第二季
-#[allow(dead_code)]
-fn extract_bangumi_season_title(full_title: &str) -> String {
-    let title = full_title.trim_start_matches('《');
-
-    if let Some(end_pos) = title.find('》') {
-        return title[..end_pos].to_string();
-    }
-
-    // 如果没有书名号，找到"第X话"之前的部分
-    if let Some(episode_pos) = full_title.find("第") {
-        if let Some(hua_pos) = full_title[episode_pos..].find("话") {
-            // 确保这是"第X话"而不是"第X季"
-            let between = &full_title[episode_pos + 3..episode_pos + hua_pos];
-            if between.chars().all(|c| c.is_numeric()) && episode_pos > 0 {
-                return full_title[..episode_pos].trim().to_string();
-            }
-        }
-    }
-
-    full_title.to_string()
 }
 
 /// 从API获取合集封面URL

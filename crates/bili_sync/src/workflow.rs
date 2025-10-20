@@ -284,7 +284,7 @@ pub async fn refresh_video_source<'a>(
                     .position(|(_, bvid, _, _)| bvid == &new_video.bvid);
 
                 if let Some(idx) = video_info_idx {
-                    let (title, _, upper_name, _bangumi_episode) = &temp_video_infos[idx];
+                    let (title, _, upper_name, _) = &temp_video_infos[idx];
 
                     // 使用数据库中的发布时间（已经是北京时间）
                     let pubtime = new_video.pubtime.format("%Y-%m-%d %H:%M:%S").to_string();
@@ -1276,7 +1276,7 @@ pub async fn download_video_pages(
         None
     };
 
-    let (res_1, res_2, res_3, res_4, res_5) = tokio::join!(
+    let (res_1, res_3, res_4, res_5) = tokio::join!(
         // 下载视频封面（普通视频）
         fetch_video_poster(
             {
@@ -1330,15 +1330,6 @@ pub async fn download_video_pages(
             // fanart URL选择逻辑：复用thumb
             None,
         ),
-        // 番剧主封面功能已移除（始终跳过）
-        fetch_bangumi_poster(
-            false,
-            &video_model,
-            downloader,
-            std::path::PathBuf::from("/dev/null"),
-            token.clone(),
-            None,
-        ),
         // 下载 Up 主头像
         fetch_upper_face(
             separate_status[2] && should_download_upper,
@@ -1377,19 +1368,8 @@ pub async fn download_video_pages(
         .collect::<Vec<_>>();
     status.update_status(&main_results);
 
-    // 额外的结果单独处理（番剧相关功能已移除，仅保留兼容性）
-    let extra_results = [
-        Ok(ExecutionStatus::Skipped), // 原season_nfo_result
-        Ok(ExecutionStatus::Skipped), // 原season_images_result
-        res_2, // 原番剧主封面 poster.jpg 的结果（已禁用）
-    ]
-    .into_iter()
-    .map(Into::into)
-    .collect::<Vec<_>>();
-
     // 合并所有结果用于日志处理
     let mut all_results = main_results;
-    all_results.extend(extra_results);
 
     // 充电视频在获取详情时已经被upower字段检测并处理，无需后期检测
 
@@ -2748,21 +2728,6 @@ pub async fn generate_upper_nfo(
     Ok(ExecutionStatus::Succeeded)
 }
 
-/// 下载番剧主封面（已废弃，保留以兼容）
-pub async fn fetch_bangumi_poster(
-    should_run: bool,
-    _video_model: &video::Model,
-    _downloader: &UnifiedDownloader,
-    _poster_path: PathBuf,
-    _token: CancellationToken,
-    _custom_poster_url: Option<&str>,
-) -> Result<ExecutionStatus> {
-    if !should_run {
-        return Ok(ExecutionStatus::Skipped);
-    }
-    // 番剧功能已移除，直接返回跳过
-    Ok(ExecutionStatus::Skipped)
-}
 
 async fn get_video_count_for_source(video_source: &VideoSourceEnum, connection: &DatabaseConnection) -> Result<usize> {
     let count = video::Entity::find()
@@ -3273,7 +3238,6 @@ pub async fn fix_page_video_ids(connection: &DatabaseConnection) -> Result<()> {
             let mut collection_ids = std::collections::HashSet::new();
             let mut favorite_ids = std::collections::HashSet::new();
             let mut watch_later_ids = std::collections::HashSet::new();
-            let mut bangumi_source_ids = std::collections::HashSet::new();
 
             for row in deleted_videos_sources {
                 if let Ok(Some(id)) = row.try_get::<Option<i32>>("", "submission_id") {
@@ -3287,15 +3251,6 @@ pub async fn fix_page_video_ids(connection: &DatabaseConnection) -> Result<()> {
                 }
                 if let Ok(Some(id)) = row.try_get::<Option<i32>>("", "watch_later_id") {
                     watch_later_ids.insert(id);
-                }
-                // 番剧通过source_id和source_type=1判断
-                if let (Ok(Some(source_id)), Ok(Some(source_type))) = (
-                    row.try_get::<Option<i32>>("", "source_id"),
-                    row.try_get::<Option<i32>>("", "source_type"),
-                ) {
-                    if source_type == 1 {
-                        bangumi_source_ids.insert(source_id);
-                    }
                 }
             }
 
@@ -3366,7 +3321,7 @@ pub async fn fix_page_video_ids(connection: &DatabaseConnection) -> Result<()> {
                     .execute(Statement::from_sql_and_values(
                         DatabaseBackend::Sqlite,
                         format!(
-                            "UPDATE watch_later SET scan_deleted_videos = 1 
+                            "UPDATE watch_later SET scan_deleted_videos = 1
                              WHERE id IN ({}) AND scan_deleted_videos = 0",
                             placeholders
                         ),
@@ -3375,25 +3330,6 @@ pub async fn fix_page_video_ids(connection: &DatabaseConnection) -> Result<()> {
                     .await?;
                 if result.rows_affected() > 0 {
                     enabled_sources.push(format!("{}个稍后再看", result.rows_affected()));
-                }
-            }
-
-            // 番剧
-            if !bangumi_source_ids.is_empty() {
-                let placeholders = bangumi_source_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
-                let result = txn
-                    .execute(Statement::from_sql_and_values(
-                        DatabaseBackend::Sqlite,
-                        format!(
-                            "UPDATE video_source SET scan_deleted_videos = 1 
-                             WHERE id IN ({}) AND scan_deleted_videos = 0",
-                            placeholders
-                        ),
-                        bangumi_source_ids.iter().map(|id| (*id).into()).collect::<Vec<_>>(),
-                    ))
-                    .await?;
-                if result.rows_affected() > 0 {
-                    enabled_sources.push(format!("{}个番剧", result.rows_affected()));
                 }
             }
 
