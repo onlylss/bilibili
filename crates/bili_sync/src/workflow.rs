@@ -1737,7 +1737,7 @@ pub async fn download_video_pages(
 
     // 为番剧判断是否下载元数据（依赖数据库状态，不检查文件存在性）
     // 只有第一个集（should_download_upper=true）才负责下载Series级别图片
-    let (should_download_bangumi_poster, should_download_bangumi_nfo) =
+    let (_should_download_bangumi_poster, _should_download_bangumi_nfo) =
         if is_bangumi && bangumi_folder_path.is_some() && should_download_upper {
             let config = crate::config::reload_config();
 
@@ -1992,7 +1992,7 @@ pub async fn download_video_pages(
         info!("番剧「{}」使用季度编号: {}", series_title, season_number);
 
         // season.nfo生成依赖separate_status[2]状态（重置状态后会强制重新生成）
-        let should_generate_season_nfo = separate_status[2];
+        let _should_generate_season_nfo = separate_status[2];
 
         generate_bangumi_season_nfo(
             false, // 禁用NFO生成
@@ -2029,7 +2029,7 @@ pub async fn download_video_pages(
             let season_poster_path = series_root.join(format!("Season{:02}-poster.jpg", season_number));
 
             // 依赖数据库状态决定是否下载季度级图片（不检查文件存在性，以支持重置状态后重新下载）
-            let should_download_season_images = separate_status[0];
+            let _should_download_season_images = separate_status[0];
 
             info!("准备下载季度级图片到: {:?}, {:?} 和 {:?}", poster_path, fanart_path, season_poster_path);
 
