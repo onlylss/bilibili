@@ -20,15 +20,6 @@
 	let dataLoaded = false;
 	let isAuthenticated = false;
 
-	// 监听路由变化，确保内容渲染
-	let currentPath = '';
-	$: {
-		// 当路由改变时，强制重新评估渲染条件
-		if ($page.url.pathname !== currentPath) {
-			currentPath = $page.url.pathname;
-		}
-	}
-
 	// 退出登录
 	function handleLogout() {
 		api.setAuthToken('');
@@ -134,9 +125,7 @@
 						</div>
 					{/if}
 					{#if dataLoaded}
-						{#key currentPath}
-							<slot />
-						{/key}
+						<slot />
 					{/if}
 				</div>
 			</div>
