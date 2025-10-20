@@ -90,6 +90,7 @@ impl<'a> Video<'a> {
 
     /// 检查视频是否存在
     /// 调用视频详情API，如果返回-404则表示视频已被删除
+    #[allow(dead_code)]
     pub async fn check_video_exists(&self) -> Result<bool> {
         let request_url = "https://api.bilibili.com/x/web-interface/view";
         tracing::debug!("检查视频是否存在: {} - BVID: {}", request_url, self.bvid);
@@ -140,6 +141,7 @@ impl<'a> Video<'a> {
 
     /// 调用视频详情API获取epid信息，用于API降级处理
     /// 当普通视频API返回-404错误时，可以通过此方法获取epid，然后尝试番剧API降级
+    #[allow(dead_code)]
     pub async fn get_video_detail_for_epid(&self) -> Result<Option<String>> {
         tracing::debug!("调用视频详情API获取epid信息: BVID={}", self.bvid);
 
@@ -417,6 +419,7 @@ impl<'a> Video<'a> {
     }
 
     /// 带质量回退的页面分析器获取
+    #[allow(dead_code)]
     pub async fn get_page_analyzer_with_fallback(&self, page: &PageInfo) -> Result<PageAnalyzer> {
         // 质量回退列表：从最高到最低，恢复原始顺序
         let quality_levels = ["127", "126", "125", "120", "116", "112", "80", "64", "32", "16"];
@@ -571,6 +574,7 @@ impl<'a> Video<'a> {
     /// 带API降级的视频流获取（普通视频->番剧API）
     /// 当普通视频API返回 -404 "啥都木有" 时，自动尝试番剧API
     /// 如果缺少ep_id，会先尝试从视频详情API获取epid信息
+    #[allow(dead_code)]
     pub async fn get_page_analyzer_with_api_fallback(
         &self,
         page: &PageInfo,
@@ -653,6 +657,7 @@ impl<'a> Video<'a> {
     }
 
     /// 使用指定质量获取页面分析器
+    #[allow(dead_code)]
     async fn get_page_analyzer_with_quality(&self, page: &PageInfo, qn: &str) -> Result<PageAnalyzer> {
         // 修复字符串生命周期问题
         let cid_string = page.cid.to_string();
@@ -1020,6 +1025,7 @@ impl<'a> Video<'a> {
     }
 
     /// 带质量回退的番剧页面分析器获取
+    #[allow(dead_code)]
     pub async fn get_bangumi_page_analyzer_with_fallback(&self, page: &PageInfo, ep_id: &str) -> Result<PageAnalyzer> {
         // 质量回退列表：从最高到最低，恢复原始顺序
         let quality_levels = ["127", "126", "125", "120", "116", "112", "80", "64", "32", "16"];
@@ -1114,6 +1120,7 @@ impl<'a> Video<'a> {
     }
 
     /// 使用指定质量获取番剧页面分析器
+    #[allow(dead_code)]
     async fn get_bangumi_page_analyzer_with_quality(
         &self,
         page: &PageInfo,
@@ -1250,6 +1257,7 @@ impl<'a> Video<'a> {
     }
 
     /// 专门为番剧获取播放地址分析器
+    #[allow(dead_code)]
     pub async fn get_bangumi_page_analyzer(&self, page: &PageInfo, ep_id: &str) -> Result<PageAnalyzer> {
         // 修复字符串生命周期问题
         let cid_string = page.cid.to_string();
@@ -1454,6 +1462,7 @@ impl<'a> Video<'a> {
     }
 
     /// 处理风控验证流程
+    #[allow(dead_code)]
     async fn handle_risk_control_verification(&self, v_voucher: String) -> Result<String> {
         use crate::bilibili::{RiskControl, VerificationRequest, VERIFICATION_COORDINATOR};
         use crate::config::with_config;

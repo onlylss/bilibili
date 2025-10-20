@@ -6,6 +6,7 @@ use super::{CaptchaResult, GeetestInfo};
 use crate::config::AutoSolveConfig;
 
 /// 验证码识别服务类型
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub enum CaptchaService {
     TwoCaptcha,
@@ -23,11 +24,13 @@ impl From<&str> for CaptchaService {
 }
 
 /// 验证码识别器
+#[allow(dead_code)]
 pub struct CaptchaSolver {
     config: AutoSolveConfig,
     client: reqwest::Client,
 }
 
+#[allow(dead_code)]
 impl CaptchaSolver {
     pub fn new(config: AutoSolveConfig) -> Self {
         let client = reqwest::Client::builder()

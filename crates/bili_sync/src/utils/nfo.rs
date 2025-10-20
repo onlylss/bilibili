@@ -14,6 +14,7 @@ pub enum NFO<'a> {
     TVShow(TVShow<'a>),
     Upper(Upper),
     Episode(Episode<'a>),
+    #[allow(dead_code)]
     Season(Season<'a>),
 }
 
@@ -68,6 +69,7 @@ pub struct TVShow<'a> {
     pub duration: Option<i32>, // 视频时长（分钟）
     pub view_count: Option<i64>,
     pub like_count: Option<i64>,
+    #[allow(dead_code)]
     pub category: i32,               // 视频分类（用于番剧检测）
     pub tagline: Option<String>,     // 标语/副标题（从share_copy提取）
     pub set: Option<String>,         // 系列名称
@@ -1392,6 +1394,7 @@ async fn write_upper_nfo(mut writer: Writer<&mut BufWriter<&mut Vec<u8>>>, upper
     }
 
     /// 从share_copy或标题中提取副标题信息
+    #[allow(dead_code)]
     fn extract_subtitle_from_share_copy(share_copy: &str) -> Option<String> {
         // 匹配 "《番剧名称》副标题" 格式，提取副标题
         let pattern = regex::Regex::new(r"《[^》]+》\s*(.+)").unwrap();
@@ -1891,6 +1894,7 @@ impl<'a> From<&'a video::Model> for Season<'a> {
     }
 }
 
+    #[allow(dead_code)]
     async fn test_generate_nfo() {
         let video = video::Model {
             intro: "intro".to_string(),

@@ -221,11 +221,13 @@ impl ConfigBundle {
     }
 
     /// 渲染番剧文件夹名称模板的便捷方法
+    #[allow(dead_code)]
     pub fn render_bangumi_folder_template(&self, data: &serde_json::Value) -> Result<String> {
         self.render_template_safe("bangumi_folder", data)
     }
 
     /// 渲染文件夹结构模板的便捷方法
+    #[allow(dead_code)]
     pub fn render_folder_structure_template(&self, data: &serde_json::Value) -> Result<String> {
         self.render_template_safe("folder_structure", data)
     }

@@ -106,6 +106,7 @@ pub enum SourceType {
     Favorite,
     Submission,
     WatchLater,
+    #[allow(dead_code)]
     Bangumi,
 }
 

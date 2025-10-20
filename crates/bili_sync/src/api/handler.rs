@@ -7910,8 +7910,8 @@ struct VideoPlayInfo {
     aid: String,
     cid: String,
     title: String,
-    source_type: Option<i32>,
-    ep_id: Option<String>,
+    _source_type: Option<i32>,
+    _ep_id: Option<String>,
 }
 
 async fn find_video_info(video_id: &str, db: &DatabaseConnection) -> Result<VideoPlayInfo> {
@@ -7936,8 +7936,8 @@ async fn find_video_info(video_id: &str, db: &DatabaseConnection) -> Result<Vide
                     aid: bvid_to_aid(&video_record.bvid).to_string(),
                     cid: page_record.cid.to_string(),
                     title: format!("{} - {}", video_record.name, page_record.name),
-                    source_type: video_record.source_type,
-                    ep_id: None,
+                    _source_type: video_record.source_type,
+                    _ep_id: None,
                 });
             }
         }
@@ -7973,8 +7973,8 @@ async fn find_video_info(video_id: &str, db: &DatabaseConnection) -> Result<Vide
         aid: bvid_to_aid(&video.bvid).to_string(),
         cid: first_page.cid.to_string(),
         title: video.name,
-        source_type: video.source_type,
-        ep_id: None,
+        _source_type: video.source_type,
+        _ep_id: None,
     })
 }
 
@@ -9453,6 +9453,7 @@ pub async fn get_notification_status() -> Result<ApiResponse<crate::api::respons
 
 /// 从番剧标题中提取系列名称
 /// 例如：《灵笼 第二季》第1话 末世桃源 -> 灵笼
+#[allow(dead_code)]
 fn extract_bangumi_series_title(full_title: &str) -> String {
     // 移除开头的书名号
     let title = full_title.trim_start_matches('《');
@@ -9483,6 +9484,7 @@ fn extract_bangumi_series_title(full_title: &str) -> String {
 
 /// 从番剧标题中提取季度标题
 /// 例如：《灵笼 第二季》第1话 末世桃源 -> 灵笼 第二季
+#[allow(dead_code)]
 fn extract_bangumi_season_title(full_title: &str) -> String {
     let title = full_title.trim_start_matches('《');
 

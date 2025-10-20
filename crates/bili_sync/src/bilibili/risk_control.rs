@@ -47,6 +47,7 @@ pub struct CaptchaResult {
 }
 
 /// 验证响应
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct ValidateResponse {
     /// 验证是否成功，1表示成功
@@ -55,6 +56,7 @@ pub struct ValidateResponse {
     pub grisk_id: String,
 }
 
+#[allow(dead_code)]
 impl<'a> RiskControl<'a> {
     /// 创建新的风控处理实例
     pub fn new(client: &'a BiliClient, v_voucher: String) -> Self {

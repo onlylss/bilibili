@@ -167,7 +167,7 @@ pub async fn refresh_video_source<'a>(
     video_streams: Pin<Box<dyn Stream<Item = Result<VideoInfo>> + 'a + Send>>,
     connection: &DatabaseConnection,
     token: CancellationToken,
-    bili_client: &BiliClient,
+    _bili_client: &BiliClient,
 ) -> Result<(usize, Vec<NewVideoInfo>)> {
     video_source.log_refresh_video_start();
     let latest_row_at_string = video_source.get_latest_row_at();
@@ -284,7 +284,7 @@ pub async fn refresh_video_source<'a>(
                     .position(|(_, bvid, _, _)| bvid == &new_video.bvid);
 
                 if let Some(idx) = video_info_idx {
-                    let (title, _, upper_name, bangumi_episode) = &temp_video_infos[idx];
+                    let (title, _, upper_name, _bangumi_episode) = &temp_video_infos[idx];
 
                     // 使用数据库中的发布时间（已经是北京时间）
                     let pubtime = new_video.pubtime.format("%Y-%m-%d %H:%M:%S").to_string();

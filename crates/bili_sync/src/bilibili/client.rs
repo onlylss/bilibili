@@ -1050,6 +1050,7 @@ impl BiliClient {
     }
 
     /// 设置gaia_vtoken缓存
+    #[allow(dead_code)]
     pub fn set_gaia_vtoken(&self, token: String) {
         self.gaia_vtoken.store(Some(Arc::new(token)));
         tracing::info!("已缓存gaia_vtoken");

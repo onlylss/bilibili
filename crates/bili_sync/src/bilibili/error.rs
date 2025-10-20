@@ -4,6 +4,7 @@ use thiserror::Error;
 pub enum BiliError {
     #[error("risk control occurred")]
     RiskControlOccurred,
+    #[allow(dead_code)]
     #[error("risk control verification required, v_voucher: {0}")]
     RiskControlVerificationRequired(String),
     #[error("request failed, status code: {0}, message: {1}")]
@@ -14,6 +15,7 @@ pub enum BiliError {
     #[allow(dead_code)]
     #[error("video stream access denied, code: {0}")]
     VideoStreamDenied(i64),
+    #[allow(dead_code)]
     #[error("video stream empty: {0}")]
     VideoStreamEmpty(String),
 }

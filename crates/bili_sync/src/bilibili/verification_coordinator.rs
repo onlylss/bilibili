@@ -9,6 +9,7 @@ use super::{CaptchaInfo, CaptchaResult, CaptchaSolver};
 use crate::config::RiskControlConfig;
 
 /// 验证请求类型
+#[allow(dead_code)]
 #[derive(Debug)]
 pub enum VerificationRequest {
     /// 开始新的验证流程
@@ -25,20 +26,24 @@ enum VerificationState {
     /// 空闲状态
     Idle,
     /// 等待用户验证
+    #[allow(dead_code)]
     WaitingForUser {
         captcha_info: CaptchaInfo,
         result_sender: Option<oneshot::Sender<CaptchaResult>>,
     },
     /// 验证完成，token可用
+    #[allow(dead_code)]
     Completed { gaia_vtoken: String, expires_at: Instant },
 }
 
 /// 全局验证协调器
 pub struct VerificationCoordinator {
     state: Arc<Mutex<VerificationState>>,
+    #[allow(dead_code)]
     notify: Arc<Notify>,
 }
 
+#[allow(dead_code)]
 impl VerificationCoordinator {
     fn new() -> Self {
         Self {
