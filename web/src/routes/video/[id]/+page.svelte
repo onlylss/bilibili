@@ -37,19 +37,8 @@
 	let isMobile: boolean = false;
 	$: isMobile = innerWidth < 768; // sm断点
 
-	// 根据视频类型动态生成任务名称
-	$: videoTaskNames = (() => {
-		if (!videoData?.video) return ['视频封面', '视频信息', 'UP主头像', 'UP主信息', '分P下载'];
-
-		const isBangumi = videoData.video.bangumi_title !== undefined;
-		if (isBangumi) {
-			// 番剧任务名称：VideoStatus[2] 对应 tvshow.nfo 生成
-			return ['视频封面', '视频信息', 'tvshow.nfo', 'UP主信息', '分P下载'];
-		} else {
-			// 普通视频任务名称：VideoStatus[2] 对应 UP主头像下载
-			return ['视频封面', '视频信息', 'UP主头像', 'UP主信息', '分P下载'];
-		}
-	})();
+	// 生成任务名称
+	$: videoTaskNames = ['视频封面', '视频信息', 'UP主头像', 'UP主信息', '分P下载'];
 
 	// 检查视频是否可播放（分P下载任务已完成）
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any

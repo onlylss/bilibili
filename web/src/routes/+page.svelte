@@ -400,15 +400,6 @@
 												: `禁用 (${dashboardData.total_watch_later})`}
 										</Badge>
 									</div>
-									<div class="flex items-center justify-between">
-										<div class="flex items-center gap-2">
-											<TvIcon class="text-muted-foreground h-4 w-4" />
-											<span class="text-sm">番剧</span>
-										</div>
-										<Badge variant="outline"
-											>{dashboardData.enabled_bangumi} / {dashboardData.total_bangumi}</Badge
-										>
-									</div>
 								</div>
 							</div>
 						{:else}

@@ -19,17 +19,7 @@
 	export let onsubmit: (request: UpdateVideoStatusRequest) => void;
 
 	// 视频任务名称（与后端 VideoStatus 对应）
-	// 根据视频类型动态生成任务名称
-	$: videoTaskNames = (() => {
-		const isBangumi = video.bangumi_title !== undefined;
-		if (isBangumi) {
-			// 番剧任务名称：VideoStatus[2] 对应 tvshow.nfo 生成
-			return ['视频封面', '视频信息', 'tvshow.nfo', 'UP主信息', '分P下载'];
-		} else {
-			// 普通视频任务名称：VideoStatus[2] 对应 UP主头像下载
-			return ['视频封面', '视频信息', 'UP主头像', 'UP主信息', '分P下载'];
-		}
-	})();
+	$: videoTaskNames = ['视频封面', '视频信息', 'UP主头像', 'UP主信息', '分P下载'];
 
 	// 分页任务名称（与后端 PageStatus 对应）
 	const pageTaskNames = ['视频封面', '视频内容', '视频信息', '视频弹幕', '视频字幕'];

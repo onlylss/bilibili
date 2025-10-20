@@ -210,14 +210,14 @@
 				//
 				// 最终修复的索引映射关系：
 				// index 0: Video封面 + Page封面 → 封面图片文件
-				// index 1: Video信息(普通视频) + Page内容 → 视频文件(.mp4)，番剧无NFO副作用
-				// index 2: Video信息(番剧tvshow.nfo) + Page信息 → tvshow.nfo + 单集NFO文件
+				// index 1: Video信息 + Page内容 → 视频文件(.mp4)
+				// index 2: Video头像 + Page信息 → UP主头像 + 单集NFO文件
 				// index 3: Video Up主信息 + Page弹幕 → Up主信息 + 弹幕文件(.ass)
 				// index 4: Video 分P下载 + Page字幕 → 分P下载 + 字幕文件
 
 				if (resetTaskPages) taskIndexes.push(0); // 重置封面文件
-				if (resetTaskVideo) taskIndexes.push(1); // 重置视频内容 (纯视频文件，番剧无NFO)
-				if (resetTaskInfo) taskIndexes.push(2); // 重置视频信息 (tvshow.nfo + 单集NFO)
+				if (resetTaskVideo) taskIndexes.push(1); // 重置视频内容
+				if (resetTaskInfo) taskIndexes.push(2); // 重置视频信息 (UP主头像 + 单集NFO)
 				if (resetTaskDanmaku) taskIndexes.push(3); // 重置弹幕文件 (弹幕 + Up主信息)
 				if (resetTaskSubtitle) taskIndexes.push(4); // 重置字幕文件 (字幕 + 分P下载)
 

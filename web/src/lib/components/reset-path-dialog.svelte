@@ -37,8 +37,7 @@
 			collection: '合集',
 			favorite: '收藏夹',
 			submission: 'UP主投稿',
-			watch_later: '稍后观看',
-			bangumi: '番剧'
+			watch_later: '稍后观看'
 		};
 		return typeMap[type] || type;
 	}

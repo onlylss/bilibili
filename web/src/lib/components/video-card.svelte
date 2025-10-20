@@ -139,77 +139,13 @@
 	}
 
 	// 根据模式确定显示的标题和副标题
-	$: displayTitle = customTitle || getEnhancedVideoTitle(video);
+	$: displayTitle = customTitle || video.name.trim();
 	$: displaySubtitle = customSubtitle || video.upper_name;
 	$: showUserIcon = mode === 'default';
 	$: cardClasses =
 		mode === 'default'
 			? `group flex h-full min-w-0 flex-col transition-all hover:shadow-md ${selected ? 'ring-2 ring-blue-500' : ''}`
 			: `transition-all hover:shadow-md ${selected ? 'ring-2 ring-blue-500' : ''}`;
-
-	// 从路径中提取番剧名称的通用函数
-	function extractBangumiName(path: string): string {
-		if (!path) return '';
-		const pathParts = path.split(/[/\\]/);
-		// 查找最后一个非空的路径部分作为番剧名称
-		for (let i = pathParts.length - 1; i >= 0; i--) {
-			const part = pathParts[i].trim();
-			if (part && part !== '.' && part !== '..') {
-				return part;
-			}
-		}
-		return '';
-	}
-
-	// 简化的番剧检测逻辑 - 直接使用category字段
-	function isBangumiVideo(video: VideoInfo): boolean {
-		return video.category === 1;
-	}
-
-	// 获取番剧名称用于显示
-	function getBangumiName(video: VideoInfo): string {
-		if (isBangumiVideo(video)) {
-			// 优先使用API获取的真实番剧标题
-			if (video.bangumi_title) {
-				return video.bangumi_title;
-			}
-			// 回退到从路径提取
-			return extractBangumiName(video.path);
-		}
-		return '';
-	}
-
-	// 获取集数信息用于显示 - 统一处理
-	function getEpisodeInfo(video: VideoInfo): string {
-		const originalName = video.name.trim();
-
-		// 如果是番剧，尝试美化集数显示
-		if (isBangumiVideo(video)) {
-			// 如果是纯数字，加上"第X集"
-			if (/^\d+$/.test(originalName)) {
-				return `第${originalName}集`;
-			}
-			// 如果已经有"第X话"格式，保持原样
-			if (/^第\d+[话集]/.test(originalName)) {
-				return originalName;
-			}
-			// 其他情况直接返回原名
-			return originalName;
-		}
-
-		return originalName;
-	}
-
-	// 统一的视频标题显示逻辑
-	function getEnhancedVideoTitle(video: VideoInfo): string {
-		// 如果检测到番剧，统一使用两行显示的第二行内容
-		if (isBangumiVideo(video)) {
-			return getEpisodeInfo(video);
-		}
-
-		// 非番剧直接返回原标题
-		return video.name.trim();
-	}
 
 	// 获取代理后的图片URL
 	function getProxiedImageUrl(originalUrl: string): string {
@@ -282,20 +218,7 @@
 				class="line-clamp-2 min-w-0 flex-1 cursor-default text-sm leading-tight"
 				title={displayTitle}
 			>
-				{#if getBangumiName(video)}
-					<!-- 两行显示：番剧名 + 集数信息 -->
-					<div class="space-y-1">
-						<div class="text-primary line-clamp-1 leading-tight font-medium">
-							{getBangumiName(video)}
-						</div>
-						<div class="text-muted-foreground line-clamp-1 text-xs leading-tight">
-							{getEpisodeInfo(video)}
-						</div>
-					</div>
-				{:else}
-					<!-- 单行显示：原始标题 -->
-					<div class="text-primary line-clamp-2 leading-tight font-medium">{displayTitle}</div>
-				{/if}
+				<div class="text-primary line-clamp-2 leading-tight font-medium">{displayTitle}</div>
 			</CardTitle>
 			{#if !video.cover || mode !== 'default'}
 				<Badge variant={overallStatus.color} class="shrink-0 text-xs">
