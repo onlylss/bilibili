@@ -6,7 +6,7 @@ use axum::extract::{Extension, Path, Query};
 
 use crate::utils::time_format::{now_standard_string, to_standard_string};
 use crate::http::headers::{create_image_headers, create_api_headers};
-use bili_sync_entity::{collection, favorite, page, submission, video, video_source, watch_later};
+use bili_sync_entity::{collection, favorite, page, submission, video, watch_later};
 use bili_sync_migration::Expr;
 use reqwest;
 use sea_orm::{

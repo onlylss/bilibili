@@ -1369,7 +1369,7 @@ pub async fn download_video_pages(
     status.update_status(&main_results);
 
     // 合并所有结果用于日志处理
-    let mut all_results = main_results;
+    let all_results = main_results;
 
     // 充电视频在获取详情时已经被upower字段检测并处理，无需后期检测
 
