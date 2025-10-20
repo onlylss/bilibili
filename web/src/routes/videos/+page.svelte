@@ -421,6 +421,8 @@
 	onMount(() => {
 		setBreadcrumb([{ label: '视频管理' }]);
 		loadVideoSources();
+		// 确保页面加载时触发数据加载
+		handleSearchParamsChange($page.url.searchParams);
 	});
 </script>
 
