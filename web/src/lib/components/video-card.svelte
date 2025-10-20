@@ -70,18 +70,9 @@
 			return taskNames[index] || `任务${index + 1}`;
 		}
 
-		// 根据视频类型返回不同的任务名称
-		const isBangumi = video.bangumi_title !== undefined;
-
-		if (isBangumi) {
-			// 番剧任务名称：VideoStatus[2] 对应 tvshow.nfo 生成
-			const bangumiTaskNames = ['视频封面', '视频信息', 'tvshow.nfo', 'UP主信息', '分P下载'];
-			return bangumiTaskNames[index] || `任务${index + 1}`;
-		} else {
-			// 普通视频任务名称：VideoStatus[2] 对应 UP主头像下载
-			const defaultTaskNames = ['视频封面', '视频信息', 'UP主头像', 'UP主信息', '分P下载'];
-			return defaultTaskNames[index] || `任务${index + 1}`;
-		}
+		// 普通视频任务名称：VideoStatus[2] 对应 UP主头像下载
+		const defaultTaskNames = ['视频封面', '视频信息', 'UP主头像', 'UP主信息', '分P下载'];
+		return defaultTaskNames[index] || `任务${index + 1}`;
 	}
 
 	$: overallStatus = getOverallStatus(video.download_status);

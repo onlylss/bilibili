@@ -352,18 +352,6 @@
 															| UP主ID: {source.m_id}{/if}
 													{:else if sourceConfig.type === 'submission' && source.upper_id}
 														UP主ID: {source.upper_id}
-													{:else if sourceConfig.type === 'bangumi'}
-														{#if source.season_id}<span class="block"
-																>主季度ID: {source.season_id}</span
-															>{/if}
-														{#if source.selected_seasons?.length}
-															<span class="block"
-																>已选季度ID: {source.selected_seasons.join(', ')}</span
-															>
-														{/if}
-														{#if source.media_id}<span class="block"
-																>Media ID: {source.media_id}</span
-															>{/if}
 													{:else if sourceConfig.type === 'watch_later'}
 														稍后再看 (无特定ID)
 													{/if}

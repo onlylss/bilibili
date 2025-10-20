@@ -372,8 +372,7 @@
 					path: videoData.video.path,
 					category: videoData.video.category,
 					cover: videoData.video.cover || '',
-					download_status: videoData.video.download_status,
-					bangumi_title: videoData.video.bangumi_title
+					download_status: videoData.video.download_status
 				}}
 				mode="detail"
 				showActions={true}
