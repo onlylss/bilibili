@@ -43,10 +43,6 @@ pub struct AddVideoSourceTask {
     pub path: String,
     pub up_id: Option<String>,
     pub collection_type: Option<String>,
-    pub media_id: Option<String>,
-    pub ep_id: Option<String>,
-    pub download_all_seasons: Option<bool>,
-    pub selected_seasons: Option<Vec<String>>,
     pub task_id: String, // 唯一任务ID，用于追踪
 }
 

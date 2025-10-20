@@ -2,15 +2,6 @@
 
 use sea_orm::entity::prelude::*;
 use sea_orm::ActiveModelBehavior;
-use strum::EnumIter;
-
-#[derive(Clone, Debug, PartialEq, Eq, DeriveActiveEnum, EnumIter, Default)]
-#[sea_orm(rs_type = "i32", db_type = "Integer")]
-pub enum SourceType {
-    #[sea_orm(num_value = 1)]
-    #[default]
-    Bangumi = 1,
-}
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Default)]
 #[sea_orm(table_name = "video_source")]
@@ -22,17 +13,10 @@ pub struct Model {
     pub r#type: i32,
     pub latest_row_at: String,
     pub created_at: String,
-    pub season_id: Option<String>,
-    pub media_id: Option<String>,
-    pub ep_id: Option<String>,
-    pub download_all_seasons: Option<bool>,
     pub video_name_template: Option<String>,
     pub page_name_template: Option<String>,
-    pub selected_seasons: Option<String>,
     pub enabled: bool,
     pub scan_deleted_videos: bool,
-    pub cached_episodes: Option<String>,
-    pub cache_updated_at: Option<String>,
     pub download_danmaku: bool,
 }
 

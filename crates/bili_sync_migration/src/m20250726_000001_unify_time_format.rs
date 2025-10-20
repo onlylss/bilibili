@@ -27,13 +27,8 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(VideoSourceNew::Type).integer().not_null())
                     .col(ColumnDef::new(VideoSourceNew::LatestRowAt).string().not_null())
                     .col(ColumnDef::new(VideoSourceNew::CreatedAt).string().not_null())
-                    .col(ColumnDef::new(VideoSourceNew::SeasonId).string())
-                    .col(ColumnDef::new(VideoSourceNew::MediaId).string())
-                    .col(ColumnDef::new(VideoSourceNew::EpId).string())
-                    .col(ColumnDef::new(VideoSourceNew::DownloadAllSeasons).boolean())
                     .col(ColumnDef::new(VideoSourceNew::VideoNameTemplate).string())
                     .col(ColumnDef::new(VideoSourceNew::PageNameTemplate).string())
-                    .col(ColumnDef::new(VideoSourceNew::SelectedSeasons).string())
                     .col(
                         ColumnDef::new(VideoSourceNew::Enabled)
                             .boolean()
@@ -46,8 +41,12 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(false),
                     )
-                    .col(ColumnDef::new(VideoSourceNew::CachedEpisodes).string())
-                    .col(ColumnDef::new(VideoSourceNew::CacheUpdatedAt).string())
+                    .col(
+                        ColumnDef::new(VideoSourceNew::DownloadDanmaku)
+                            .boolean()
+                            .not_null()
+                            .default(false),
+                    )
                     .to_owned(),
             )
             .await?;
@@ -59,22 +58,17 @@ impl MigrationTrait for Migration {
         db.execute_unprepared(
             r#"
             INSERT INTO video_source_new (
-                id, name, path, type, latest_row_at, created_at, season_id, media_id, ep_id,
-                download_all_seasons, video_name_template, page_name_template, selected_seasons,
-                enabled, scan_deleted_videos, cached_episodes, cache_updated_at
+                id, name, path, type, latest_row_at, created_at,
+                video_name_template, page_name_template,
+                enabled, scan_deleted_videos, download_danmaku
             )
-            SELECT 
+            SELECT
                 id, name, path, type,
                 strftime('%Y-%m-%d %H:%M:%S', latest_row_at),
                 created_at,
-                season_id, media_id, ep_id,
-                download_all_seasons, video_name_template, page_name_template, selected_seasons,
-                enabled, scan_deleted_videos, cached_episodes,
-                CASE 
-                    WHEN cache_updated_at IS NOT NULL 
-                    THEN strftime('%Y-%m-%d %H:%M:%S', cache_updated_at)
-                    ELSE NULL
-                END
+                video_name_template, page_name_template,
+                enabled, scan_deleted_videos,
+                COALESCE(download_danmaku, 0)
             FROM video_source
             "#,
         )
@@ -429,17 +423,11 @@ enum VideoSourceNew {
     Type,
     LatestRowAt,
     CreatedAt,
-    SeasonId,
-    MediaId,
-    EpId,
-    DownloadAllSeasons,
     VideoNameTemplate,
     PageNameTemplate,
-    SelectedSeasons,
     Enabled,
     ScanDeletedVideos,
-    CachedEpisodes,
-    CacheUpdatedAt,
+    DownloadDanmaku,
 }
 
 #[derive(Iden)]

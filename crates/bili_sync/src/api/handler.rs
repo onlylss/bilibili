@@ -1422,10 +1422,6 @@ pub async fn add_video_source(
             path: params.path.clone(),
             up_id: params.up_id.clone(),
             collection_type: params.collection_type.clone(),
-            media_id: None,
-            ep_id: None,
-            download_all_seasons: None,
-            selected_seasons: None,
             task_id: task_id.clone(),
         };
 
@@ -7609,8 +7605,6 @@ struct VideoPlayInfo {
     aid: String,
     cid: String,
     title: String,
-    _source_type: Option<i32>,
-    _ep_id: Option<String>,
 }
 
 async fn find_video_info(video_id: &str, db: &DatabaseConnection) -> Result<VideoPlayInfo> {
@@ -7635,8 +7629,6 @@ async fn find_video_info(video_id: &str, db: &DatabaseConnection) -> Result<Vide
                     aid: bvid_to_aid(&video_record.bvid).to_string(),
                     cid: page_record.cid.to_string(),
                     title: format!("{} - {}", video_record.name, page_record.name),
-                    _source_type: video_record.source_type,
-                    _ep_id: None,
                 });
             }
         }
@@ -7672,8 +7664,6 @@ async fn find_video_info(video_id: &str, db: &DatabaseConnection) -> Result<Vide
         aid: bvid_to_aid(&video.bvid).to_string(),
         cid: first_page.cid.to_string(),
         title: video.name,
-        _source_type: video.source_type,
-        _ep_id: None,
     })
 }
 
