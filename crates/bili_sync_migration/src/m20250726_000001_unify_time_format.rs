@@ -68,7 +68,7 @@ impl MigrationTrait for Migration {
                 created_at,
                 video_name_template, page_name_template,
                 enabled, scan_deleted_videos,
-                COALESCE(download_danmaku, 0)
+                0
             FROM video_source
             "#,
         )
