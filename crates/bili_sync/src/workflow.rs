@@ -1797,7 +1797,7 @@ pub async fn download_video_pages(
         // 番剧且有API数据：使用API驱动的NFO生成
         // 注意：启用Season结构时，bangumi_folder_path已经指向系列根目录
         generate_bangumi_video_nfo(
-            separate_status[2] && bangumi_folder_path.is_some() && should_download_bangumi_nfo,
+            false, // 禁用NFO生成
             &video_model,
             season_info.as_ref().unwrap(),
             bangumi_folder_path.as_ref().unwrap().join("tvshow.nfo"),
@@ -1844,7 +1844,7 @@ pub async fn download_video_pages(
                 };
 
                 generate_collection_video_nfo(
-                    true,
+                    false, // 禁用NFO生成
                     &video_model,
                     Some(&collection_source.name),
                     collection_cover.as_deref(),
@@ -1886,7 +1886,7 @@ pub async fn download_video_pages(
         } else {
             // 普通视频或番剧：使用原有逻辑
             generate_video_nfo(
-                should_generate_nfo,
+                false, // 禁用NFO生成
                 &video_model,
                 if let Some(ref bangumi_path) = bangumi_folder_path {
                     if is_bangumi {
@@ -1995,7 +1995,7 @@ pub async fn download_video_pages(
         let should_generate_season_nfo = separate_status[2];
 
         generate_bangumi_season_nfo(
-            should_generate_season_nfo,
+            false, // 禁用NFO生成
             &video_model,
             season_info.as_ref().unwrap(),
             base_path.clone(),
@@ -2061,7 +2061,7 @@ pub async fn download_video_pages(
             let (thumb_result, fanart_result, poster_result) = tokio::join!(
                 // Season01-thumb.jpg (横版封面)
                 fetch_video_poster(
-                    should_download_season_images,
+                    false, // 禁用封面下载
                     &video_model,
                     downloader,
                     poster_path.clone(), // 这里实际是thumb路径
@@ -2072,7 +2072,7 @@ pub async fn download_video_pages(
                 ),
                 // Season01-fanart.jpg (竖版封面)
                 fetch_video_poster(
-                    should_download_season_images,
+                    false, // 禁用封面下载
                     &video_model,
                     downloader,
                     fanart_path.clone(),
@@ -2083,7 +2083,7 @@ pub async fn download_video_pages(
                 ),
                 // Season01-poster.jpg (竖版封面，Jellyfin优先级最高)
                 fetch_bangumi_poster(
-                    should_download_season_images,
+                    false, // 禁用封面下载
                     &video_model,
                     downloader,
                     season_poster_path,
@@ -2113,16 +2113,7 @@ pub async fn download_video_pages(
     let (res_1, res_2, res_3, res_4, res_5) = tokio::join!(
         // 下载视频封面（番剧和普通视频采用不同策略）
         fetch_video_poster(
-            if is_bangumi {
-                // 番剧：只有在文件不存在时才下载，放在番剧文件夹根目录
-                separate_status[0] && bangumi_folder_path.is_some() && should_download_bangumi_poster
-            } else {
-                // 普通视频：为多P视频或启用Season结构的合集生成封面，并检查文件是否已存在
-                let config = crate::config::reload_config();
-                separate_status[0]
-                    && (!is_single_page || (is_collection && config.collection_use_season_structure))
-                    && should_download_season_poster
-            },
+            false, // 禁用封面下载
             &video_model,
             downloader,
             if is_bangumi && bangumi_folder_path.is_some() {
@@ -2230,7 +2221,7 @@ pub async fn download_video_pages(
         ),
         // 下载番剧主封面 poster.jpg（仅番剧需要，用于详情页左侧显示）
         fetch_bangumi_poster(
-            is_bangumi && bangumi_folder_path.is_some() && should_download_bangumi_poster,
+            false, // 禁用封面下载
             &video_model,
             downloader,
             if is_bangumi && bangumi_folder_path.is_some() {
@@ -2256,7 +2247,7 @@ pub async fn download_video_pages(
         ),
         // 下载 Up 主头像（番剧跳过，因为番剧没有UP主信息）
         fetch_upper_face(
-            separate_status[2] && should_download_upper && !is_bangumi,
+            false, // 禁用UP主头像下载
             &final_video_model,
             downloader,
             base_upper_path.join("folder.jpg"),
@@ -2264,7 +2255,7 @@ pub async fn download_video_pages(
         ),
         // 生成 Up 主信息的 nfo（番剧跳过，因为番剧没有UP主信息）
         generate_upper_nfo(
-            separate_status[3] && should_download_upper && !is_bangumi,
+            false, // 禁用NFO生成
             &final_video_model,
             base_upper_path.join("person.nfo"),
         ),
@@ -2766,7 +2757,7 @@ pub async fn download_page(
     // 使用 tokio::join! 替代装箱的 Future，零分配并行执行
     let (res_1, res_2, res_3, res_4, res_5) = tokio::join!(
         fetch_page_poster(
-            separate_status[0],
+            false, // 禁用封面下载
             video_model,
             &page_model,
             downloader,
@@ -2783,7 +2774,7 @@ pub async fn download_page(
             &video_path,
             token.clone(),
         ),
-        generate_page_nfo(separate_status[2], video_model, &page_model, nfo_path, connection),
+        generate_page_nfo(false, video_model, &page_model, nfo_path, connection), // 禁用NFO生成
         fetch_page_danmaku(
             video_source.download_danmaku(),
             separate_status[3],
@@ -2794,7 +2785,7 @@ pub async fn download_page(
             token.clone(),
         ),
         fetch_page_subtitle(
-            separate_status[4],
+            false, // 禁用字幕下载
             bili_client,
             video_model,
             &page_info,
