@@ -108,7 +108,7 @@ impl<'a> Submission<'a> {
 
                     submission::Entity::find()
                         .filter(submission::Column::UpperId.eq(self.upper_id.parse::<i64>().unwrap_or(0)))
-                        .one(db.as_ref())
+                        .one(&db)
                         .await
                         .ok()
                         .flatten()
