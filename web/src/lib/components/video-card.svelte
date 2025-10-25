@@ -49,7 +49,7 @@
 		}
 	}
 
-	function getOverallStatus(downloadStatus: number[]): {
+	function getOverallStatus(downloadStatus: number[], autoDownload: boolean): {
 		text: string;
 		color: 'default' | 'secondary' | 'destructive' | 'outline';
 	} {
@@ -61,6 +61,8 @@
 			return { text: '全部完成', color: 'default' };
 		} else if (failed > 0) {
 			return { text: '部分失败', color: 'destructive' };
+		} else if (!autoDownload) {
+			return { text: '未下载', color: 'outline' };
 		} else {
 			return { text: '进行中', color: 'secondary' };
 		}
@@ -85,7 +87,7 @@
 		}
 	}
 
-	$: overallStatus = getOverallStatus(video.download_status);
+	$: overallStatus = getOverallStatus(video.download_status, video.auto_download);
 	$: completed = video.download_status.filter((status) => status === 7).length;
 	$: total = video.download_status.length;
 
