@@ -487,30 +487,43 @@
 
 								<!-- 下载进度条 -->
 								<div class="space-y-2 px-1">
-									{@const activeTasks = [
-										{ index: 1, name: '视频内容', status: pageInfo.download_status[1] },
-										{ index: 3, name: '视频弹幕', status: pageInfo.download_status[3] }
-									]}
-									{@const completedCount = activeTasks.filter((t) => t.status === 7).length}
 									<div class="text-muted-foreground flex justify-between text-xs">
 										<span class="truncate">下载进度</span>
-										<span class="shrink-0">{completedCount}/{activeTasks.length}</span>
+										<span class="shrink-0"
+											>{[pageInfo.download_status[1], pageInfo.download_status[3]].filter(
+												(s) => s === 7
+											).length}/2</span
+										>
 									</div>
 									<div class="flex w-full gap-1">
-										{#each activeTasks as task (task.index)}
-											<div
-												class="h-2 w-full cursor-help rounded-sm transition-all {task.status === 7
-													? 'bg-green-500'
-													: task.status === 0
-														? 'bg-yellow-500'
-														: 'bg-red-500'}"
-												title="{task.name}: {task.status === 7
-													? '已完成'
-													: task.status === 0
-														? '未开始'
-														: `失败${task.status}次`}"
-											></div>
-										{/each}
+										<!-- 视频内容 -->
+										<div
+											class="h-2 w-full cursor-help rounded-sm transition-all {pageInfo.download_status[1] ===
+											7
+												? 'bg-green-500'
+												: pageInfo.download_status[1] === 0
+													? 'bg-yellow-500'
+													: 'bg-red-500'}"
+											title="视频内容: {pageInfo.download_status[1] === 7
+												? '已完成'
+												: pageInfo.download_status[1] === 0
+													? '未开始'
+													: `失败${pageInfo.download_status[1]}次`}"
+										></div>
+										<!-- 视频弹幕 -->
+										<div
+											class="h-2 w-full cursor-help rounded-sm transition-all {pageInfo.download_status[3] ===
+											7
+												? 'bg-green-500'
+												: pageInfo.download_status[3] === 0
+													? 'bg-yellow-500'
+													: 'bg-red-500'}"
+											title="视频弹幕: {pageInfo.download_status[3] === 7
+												? '已完成'
+												: pageInfo.download_status[3] === 0
+													? '未开始'
+													: `失败${pageInfo.download_status[3]}次`}"
+										></div>
 									</div>
 								</div>
 							</div>

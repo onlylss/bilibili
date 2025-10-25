@@ -20,8 +20,6 @@
 	export let customSubtitle: string = ''; // 自定义副标题
 	export let taskNames: string[] = []; // 自定义任务名称
 	export let showProgress: boolean = true; // 是否显示进度信息
-	export let progressHeight: string = 'h-2'; // 进度条高度
-	export let gap: string = 'gap-1'; // 进度条间距
 	export let onReset: ((force: boolean) => Promise<void>) | null = null; // 自定义重置函数
 	export let resetDialogOpen = false; // 导出对话框状态，让父组件可以控制
 	export let resetting = false;
