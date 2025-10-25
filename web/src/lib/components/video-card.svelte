@@ -268,22 +268,14 @@
 </script>
 
 <Card class="{cardClasses} relative overflow-hidden">
-	<!-- 整个卡片的背景模糊图片 -->
-	{#if video.cover && mode === 'default'}
-		<div
-			class="absolute inset-0 scale-110 bg-cover bg-center opacity-20 blur-[2px]"
-			style="background-image: url('{getProxiedImageUrl(video.cover)}')"
-		></div>
-	{/if}
-
 	<!-- 封面图片 -->
 	{#if video.cover && mode === 'default'}
-		<div class="relative z-10 overflow-hidden rounded-t-lg">
+		<div class="relative overflow-hidden rounded-t-lg">
 			<!-- 前景清晰图片 -->
 			<img
 				src={getProxiedImageUrl(video.cover)}
 				alt={displayTitle}
-				class="aspect-[4/3] w-full object-cover transition-transform duration-200 group-hover:scale-105"
+				class="aspect-video w-full object-cover transition-transform duration-200 group-hover:scale-105"
 				loading="lazy"
 				on:error={(e) => {
 					// 封面加载失败时隐藏整个封面容器
@@ -307,15 +299,15 @@
 			{/if}
 
 			<!-- 状态徽章覆盖在封面上 -->
-			<div class="absolute top-2 right-2 z-20">
-				<Badge variant={overallStatus.color} class="shrink-0 text-xs shadow-md">
+			<div class="absolute bottom-1 right-1 z-20">
+				<Badge variant={overallStatus.color} class="shrink-0 text-[10px] px-1.5 py-0 shadow-sm">
 					{overallStatus.text}
 				</Badge>
 			</div>
 		</div>
 	{/if}
 
-	<CardHeader class="{mode === 'default' ? 'flex-shrink-0 pb-3' : 'pb-3'} relative z-10">
+	<CardHeader class="{mode === 'default' ? 'flex-shrink-0 p-2 pb-1' : 'pb-3'} relative">
 		<div class="flex min-w-0 items-start justify-between gap-2">
 			<!-- 选择模式复选框（无封面时显示） -->
 			{#if selectionMode && (!video.cover || mode !== 'default')}
@@ -327,34 +319,34 @@
 				/>
 			{/if}
 			<CardTitle
-				class="line-clamp-2 min-w-0 flex-1 cursor-default text-sm leading-tight"
+				class="line-clamp-2 min-w-0 flex-1 cursor-default text-xs leading-snug"
 				title={displayTitle}
 			>
 				{#if getBangumiName(video)}
 					<!-- 两行显示：番剧名 + 集数信息 -->
-					<div class="space-y-1">
-						<div class="text-primary line-clamp-1 leading-tight font-medium">
+					<div class="space-y-0.5">
+						<div class="text-primary line-clamp-1 leading-snug font-medium">
 							{getBangumiName(video)}
 						</div>
-						<div class="text-muted-foreground line-clamp-1 text-xs leading-tight">
+						<div class="text-muted-foreground line-clamp-1 text-[11px] leading-snug">
 							{getEpisodeInfo(video)}
 						</div>
 					</div>
 				{:else}
 					<!-- 单行显示：原始标题 -->
-					<div class="text-primary line-clamp-2 leading-tight font-medium">{displayTitle}</div>
+					<div class="text-primary line-clamp-2 leading-snug font-normal">{displayTitle}</div>
 				{/if}
 			</CardTitle>
 			{#if !video.cover || mode !== 'default'}
-				<Badge variant={overallStatus.color} class="shrink-0 text-xs">
+				<Badge variant={overallStatus.color} class="shrink-0 text-[10px] px-1.5 py-0">
 					{overallStatus.text}
 				</Badge>
 			{/if}
 		</div>
 		{#if displaySubtitle}
-			<div class="text-muted-foreground flex min-w-0 items-center gap-1 text-sm">
+			<div class="text-muted-foreground flex min-w-0 items-center gap-1 text-[11px] mt-0.5">
 				{#if showUserIcon}
-					<UserIcon class="h-3 w-3 shrink-0" />
+					<UserIcon class="h-2.5 w-2.5 shrink-0" />
 				{/if}
 				<span class="min-w-0 cursor-default truncate" title={displaySubtitle}>
 					{displaySubtitle}
@@ -364,35 +356,33 @@
 	</CardHeader>
 	<CardContent
 		class="{mode === 'default'
-			? 'flex min-w-0 flex-1 flex-col justify-end pt-0'
-			: 'pt-0'} relative z-10"
+			? 'flex min-w-0 flex-1 flex-col justify-end p-2 pt-0'
+			: 'pt-0'} relative"
 	>
-		<div class="space-y-3">
+		<div class="space-y-1.5">
 			<!-- 进度条区域 -->
 			{#if showProgress}
-				<div class="space-y-2">
+				<div class="space-y-1">
 					<div
-						class="text-muted-foreground flex justify-between {mode === 'default'
-							? 'text-xs'
-							: 'text-xs'}"
+						class="text-muted-foreground flex justify-between text-[10px]"
 					>
-						<span class="truncate">下载进度</span>
+						<span class="truncate">进度</span>
 						<span class="shrink-0">{completed}/{total}</span>
 					</div>
 
 					<!-- 进度条 -->
-					<div class="flex w-full {gap}">
+					<div class="flex w-full gap-0.5">
 						{#each activeTasks as task (task.index)}
 							<Tooltip.Root>
 								<Tooltip.Trigger class="flex-1">
 									<div
-										class="{progressHeight} w-full cursor-help rounded-sm transition-all {getSegmentColor(
+										class="h-1 w-full cursor-help rounded-sm transition-all {getSegmentColor(
 											task.status
 										)}"
 									></div>
 								</Tooltip.Trigger>
 								<Tooltip.Content>
-									<p>{getTaskName(task.index)}: {getStatusText(task.status)}</p>
+									<p class="text-xs">{getTaskName(task.index)}: {getStatusText(task.status)}</p>
 								</Tooltip.Content>
 							</Tooltip.Root>
 						{/each}
@@ -402,15 +392,15 @@
 
 			<!-- 操作按钮 -->
 			{#if showActions && (mode === 'default' || mode === 'detail')}
-				<div class="flex min-w-0 gap-1.5">
+				<div class="flex min-w-0 gap-1">
 					{#if mode === 'default'}
 						<Button
 							size="sm"
 							variant="outline"
-							class="min-w-0 flex-1 cursor-pointer px-2 text-xs"
+							class="min-w-0 flex-1 cursor-pointer px-1.5 py-0.5 text-[11px] h-6"
 							onclick={handleViewDetail}
 						>
-							<InfoIcon class="mr-1 h-3 w-3 shrink-0" />
+							<InfoIcon class="mr-0.5 h-2.5 w-2.5 shrink-0" />
 							<span class="truncate">详情</span>
 						</Button>
 					{/if}
@@ -421,26 +411,26 @@
 								<Button
 									size="sm"
 									variant="default"
-									class="{mode === 'detail' ? 'w-full' : 'shrink-0'} cursor-pointer px-2"
+									class="{mode === 'detail' ? 'w-full' : 'shrink-0'} cursor-pointer px-1.5 py-0.5 text-[11px] h-6"
 									onclick={handleMarkForDownload}
 									disabled={downloadingVideo}
 								>
-									<DownloadIcon class="mr-1 h-3 w-3" />
-									{mode === 'detail' ? (downloadingVideo ? '标记中...' : '标记下载') : ''}
+									<DownloadIcon class="h-2.5 w-2.5 {mode === 'detail' ? 'mr-0.5' : ''}" />
+									{mode === 'detail' ? (downloadingVideo ? '标记中...' : '下载') : ''}
 								</Button>
 							</Tooltip.Trigger>
 							<Tooltip.Content>
-								<p>标记此视频为自动下载，下次扫描时将自动下载</p>
+								<p class="text-xs">标记此视频为自动下载</p>
 							</Tooltip.Content>
 						</Tooltip.Root>
 					{/if}
 					<Button
 						size="sm"
 						variant="outline"
-						class="{mode === 'detail' ? 'w-full' : 'shrink-0'} cursor-pointer px-2"
+						class="{mode === 'detail' ? 'w-full' : 'shrink-0'} cursor-pointer px-1.5 py-0.5 text-[11px] h-6"
 						onclick={() => (resetDialogOpen = true)}
 					>
-						<RotateCcwIcon class="mr-1 h-3 w-3" />
+						<RotateCcwIcon class="h-2.5 w-2.5 {mode === 'detail' ? 'mr-0.5' : ''}" />
 						{mode === 'detail' ? '重置' : ''}
 					</Button>
 				</div>
