@@ -7,6 +7,7 @@
 	import RotateCcwIcon from '@lucide/svelte/icons/rotate-ccw';
 	import InfoIcon from '@lucide/svelte/icons/info';
 	import UserIcon from '@lucide/svelte/icons/user';
+	import DownloadIcon from '@lucide/svelte/icons/download';
 	import { goto } from '$app/navigation';
 	import api from '$lib/api';
 	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
@@ -135,6 +136,33 @@
 		if (onSelectionChange) {
 			const checkbox = event.target as HTMLInputElement;
 			onSelectionChange(video.id, checkbox.checked);
+		}
+	}
+
+	// 处理标记为自动下载
+	let downloadingVideo = false;
+	async function handleMarkForDownload() {
+		downloadingVideo = true;
+		try {
+			const response = await api.updateVideoAutoDownload(video.id, true);
+			if (response.data.success) {
+				toast.success('标记成功', {
+					description: response.data.message
+				});
+				// 更新本地状态
+				video.auto_download = true;
+				// 稍后刷新页面
+				setTimeout(() => {
+					window.location.reload();
+				}, 1000);
+			}
+		} catch (error) {
+			console.error('标记下载失败:', error);
+			toast.error('标记下载失败', {
+				description: (error as ApiError).message
+			});
+		} finally {
+			downloadingVideo = false;
 		}
 	}
 
@@ -365,6 +393,26 @@
 							<InfoIcon class="mr-1 h-3 w-3 shrink-0" />
 							<span class="truncate">详情</span>
 						</Button>
+					{/if}
+					<!-- 下载按钮 - 仅当视频未标记为自动下载时显示 -->
+					{#if !video.auto_download}
+						<Tooltip.Root>
+							<Tooltip.Trigger>
+								<Button
+									size="sm"
+									variant="default"
+									class="{mode === 'detail' ? 'w-full' : 'shrink-0'} cursor-pointer px-2"
+									onclick={handleMarkForDownload}
+									disabled={downloadingVideo}
+								>
+									<DownloadIcon class="mr-1 h-3 w-3" />
+									{mode === 'detail' ? (downloadingVideo ? '标记中...' : '标记下载') : ''}
+								</Button>
+							</Tooltip.Trigger>
+							<Tooltip.Content>
+								<p>标记此视频为自动下载，下次扫描时将自动下载</p>
+							</Tooltip.Content>
+						</Tooltip.Root>
 					{/if}
 					<Button
 						size="sm"

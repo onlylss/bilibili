@@ -753,3 +753,12 @@ pub struct TestRiskControlResponse {
     pub verification_url: Option<String>,
     pub instructions: Option<String>,
 }
+
+// 更新视频自动下载标志响应
+#[derive(Serialize, ToSchema)]
+pub struct UpdateVideoAutoDownloadResponse {
+    pub success: bool,
+    pub video_id: i32,
+    pub auto_download: bool,
+    pub message: String,
+}

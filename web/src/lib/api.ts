@@ -8,6 +8,8 @@ import type {
 	ResetAllVideosResponse,
 	UpdateVideoStatusRequest,
 	UpdateVideoStatusResponse,
+	UpdateVideoAutoDownloadRequest,
+	UpdateVideoAutoDownloadResponse,
 	ApiError,
 	AddVideoSourceRequest,
 	AddVideoSourceResponse,
@@ -478,6 +480,20 @@ class ApiClient {
 	}
 
 	/**
+	 * 更新视频的自动下载标志
+	 * @param id 视频ID
+	 * @param autoDownload 是否自动下载
+	 */
+	async updateVideoAutoDownload(
+		id: number,
+		autoDownload: boolean
+	): Promise<ApiResponse<UpdateVideoAutoDownloadResponse>> {
+		return this.patch<UpdateVideoAutoDownloadResponse>(`/videos/${id}/auto-download`, {
+			auto_download: autoDownload
+		});
+	}
+
+	/**
 	 * 检查是否需要初始设置
 	 */
 	async checkInitialSetup(): Promise<ApiResponse<InitialSetupCheckResponse>> {
@@ -798,6 +814,12 @@ export const api = {
 	 */
 	updateVideoStatus: (id: number, request: UpdateVideoStatusRequest) =>
 		apiClient.updateVideoStatus(id, request),
+
+	/**
+	 * 更新视频的自动下载标志
+	 */
+	updateVideoAutoDownload: (id: number, autoDownload: boolean) =>
+		apiClient.updateVideoAutoDownload(id, autoDownload),
 
 	/**
 	 * 更新视频源启用状态

@@ -26,7 +26,7 @@ use crate::api::error::InnerApiError;
 use crate::api::request::{
     AddVideoSourceRequest, BatchUpdateConfigRequest, ConfigHistoryRequest, QRGenerateRequest, QRPollRequest,
     ResetSpecificTasksRequest, ResetVideoSourcePathRequest, SetupAuthTokenRequest, SubmissionVideosRequest,
-    UpdateConfigItemRequest, UpdateConfigRequest, UpdateCredentialRequest, UpdateVideoSourceDownloadDanmakuRequest, UpdateVideoStatusRequest, VideosRequest,
+    UpdateConfigItemRequest, UpdateConfigRequest, UpdateCredentialRequest, UpdateVideoAutoDownloadRequest, UpdateVideoSourceDownloadDanmakuRequest, UpdateVideoStatusRequest, VideosRequest,
 };
 use crate::api::response::{
     AddVideoSourceResponse, BangumiSeasonInfo, BangumiSourceListResponse, BangumiSourceOption, ConfigChangeInfo, ConfigHistoryResponse, ConfigItemResponse,
@@ -34,7 +34,7 @@ use crate::api::response::{
     DeleteVideoSourceResponse, HotReloadStatusResponse, InitialSetupCheckResponse, MonitoringStatus, PageInfo,
     QRGenerateResponse, QRPollResponse, QRUserInfo, ResetAllVideosResponse, ResetVideoResponse,
     ResetVideoSourcePathResponse, SetupAuthTokenResponse, SubmissionVideosResponse, UpdateConfigResponse,
-    UpdateCredentialResponse, UpdateVideoSourceDownloadDanmakuResponse, UpdateVideoStatusResponse, VideoInfo, VideoResponse, VideoSource, VideoSourcesResponse,
+    UpdateCredentialResponse, UpdateVideoAutoDownloadResponse, UpdateVideoSourceDownloadDanmakuResponse, UpdateVideoStatusResponse, VideoInfo, VideoResponse, VideoSource, VideoSourcesResponse,
     VideosResponse,
 };
 use crate::api::wrapper::{ApiError, ApiResponse};
@@ -553,6 +553,11 @@ pub async fn get_videos(
         }
 
         query = query.filter(final_condition);
+    }
+
+    // 筛选未标记为自动下载的视频
+    if params.show_not_auto_download_only.unwrap_or(false) {
+        query = query.filter(video::Column::AutoDownload.eq(false));
     }
 
     let total_count = query.clone().count(db.as_ref()).await?;
@@ -1570,6 +1575,57 @@ pub async fn update_video_status(
         success: has_video_updates || has_page_updates,
         video: video_info,
         pages: pages_info,
+    }))
+}
+
+/// 更新视频的自动下载标志
+#[utoipa::path(
+    patch,
+    path = "/api/videos/{id}/auto-download",
+    request_body = UpdateVideoAutoDownloadRequest,
+    responses(
+        (status = 200, body = ApiResponse<UpdateVideoAutoDownloadResponse>),
+    )
+)]
+pub async fn update_video_auto_download(
+    Path(id): Path<i32>,
+    Extension(db): Extension<Arc<DatabaseConnection>>,
+    axum::Json(request): axum::Json<UpdateVideoAutoDownloadRequest>,
+) -> Result<ApiResponse<UpdateVideoAutoDownloadResponse>, ApiError> {
+    // 检查视频是否存在
+    let video = video::Entity::find_by_id(id)
+        .one(db.as_ref())
+        .await?;
+
+    if video.is_none() {
+        return Err(InnerApiError::NotFound(id).into());
+    }
+
+    // 更新视频的 auto_download 字段
+    video::Entity::update(video::ActiveModel {
+        id: sea_orm::ActiveValue::Unchanged(id),
+        auto_download: sea_orm::Set(request.auto_download),
+        ..Default::default()
+    })
+    .exec(db.as_ref())
+    .await?;
+
+    info!("视频 ID {} 的自动下载标志已更新为: {}", id, request.auto_download);
+
+    // 如果设置为自动下载，触发立即扫描
+    if request.auto_download {
+        crate::task::resume_scanning();
+    }
+
+    Ok(ApiResponse::ok(UpdateVideoAutoDownloadResponse {
+        success: true,
+        video_id: id,
+        auto_download: request.auto_download,
+        message: if request.auto_download {
+            "视频已标记为自动下载，将在下次扫描时下载".to_string()
+        } else {
+            "视频已取消自动下载".to_string()
+        },
     }))
 }
 

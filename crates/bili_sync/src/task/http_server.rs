@@ -71,6 +71,7 @@ use crate::api::handler::{
     update_video_source_scan_deleted,
     update_video_source_download_danmaku,
     update_video_status,
+    update_video_auto_download,
     validate_config,
     validate_favorite,
     ApiDoc,
@@ -163,6 +164,7 @@ pub async fn http_server(_database_connection: Arc<DatabaseConnection>) -> Resul
         .route("/api/videos/{id}", delete(delete_video))
         .route("/api/videos/{id}/reset", post(reset_video))
         .route("/api/videos/{id}/update-status", post(update_video_status))
+        .route("/api/videos/{id}/auto-download", axum::routing::patch(update_video_auto_download))
         .route("/api/videos/reset-all", post(reset_all_videos))
         .route("/api/videos/reset-specific-tasks", post(reset_specific_tasks))
         .route("/api/dashboard", get(get_dashboard_data))

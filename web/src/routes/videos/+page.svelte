@@ -24,6 +24,7 @@
 		setCurrentPage,
 		setQuery,
 		setShowFailedOnly,
+		setShowNotAutoDownloadOnly,
 		setSort,
 		ToQuery
 	} from '$lib/stores/filter';
@@ -54,6 +55,7 @@
 	let selectedSourceType = '';
 	let selectedSourceId = '';
 	let showFailedOnly = false;
+	let showNotAutoDownloadOnly = false;
 	let currentSortBy: SortBy = 'id';
 	let currentSortOrder: SortOrder = 'desc';
 
@@ -495,6 +497,22 @@
 			>
 				<span class="hidden sm:inline">只显示错误视频</span>
 				<span class="sm:hidden">错误视频</span>
+			</Button>
+
+			<!-- 只显示未下载视频按钮 -->
+			<Button
+				variant={showNotAutoDownloadOnly ? 'default' : 'outline'}
+				size="sm"
+				class="w-full sm:w-auto"
+				onclick={() => {
+					showNotAutoDownloadOnly = !showNotAutoDownloadOnly;
+					setShowNotAutoDownloadOnly(showNotAutoDownloadOnly);
+					resetCurrentPage();
+					goto(`/videos?${ToQuery($appStateStore)}`);
+				}}
+			>
+				<span class="hidden sm:inline">只显示未下载视频</span>
+				<span class="sm:hidden">未下载</span>
 			</Button>
 
 			<!-- 批量重置按钮 -->

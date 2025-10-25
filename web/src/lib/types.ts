@@ -21,6 +21,7 @@ export interface VideosRequest {
 	page?: number;
 	page_size?: number;
 	show_failed_only?: boolean;
+	show_not_auto_download_only?: boolean; // 仅显示未标记为自动下载的视频
 	sort_by?: SortBy;
 	sort_order?: SortOrder;
 }
@@ -62,6 +63,7 @@ export interface VideoInfo {
 	download_status: [number, number, number, number, number];
 	cover: string;
 	bangumi_title?: string; // 番剧真实标题，用于番剧类型视频的显示
+	auto_download: boolean; // 是否自动下载
 }
 
 // 视频列表响应类型
@@ -562,6 +564,19 @@ export interface UpdateVideoStatusResponse {
 	success: boolean;
 	video: VideoInfo;
 	pages: PageInfo[];
+}
+
+// 更新视频自动下载标志请求类型
+export interface UpdateVideoAutoDownloadRequest {
+	auto_download: boolean;
+}
+
+// 更新视频自动下载标志响应类型
+export interface UpdateVideoAutoDownloadResponse {
+	success: boolean;
+	video_id: number;
+	auto_download: boolean;
+	message: string;
 }
 
 // 更新视频源启用状态请求类型

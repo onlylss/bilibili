@@ -9,6 +9,7 @@ export interface AppState {
 		id: string;
 	} | null;
 	showFailedOnly: boolean;
+	showNotAutoDownloadOnly: boolean;
 	sortBy: SortBy;
 	sortOrder: SortOrder;
 }
@@ -18,12 +19,13 @@ export const appStateStore = writable<AppState>({
 	currentPage: 0,
 	videoSource: null,
 	showFailedOnly: false,
+	showNotAutoDownloadOnly: false,
 	sortBy: 'id',
 	sortOrder: 'desc'
 });
 
 export const ToQuery = (state: AppState): string => {
-	const { query, videoSource, showFailedOnly, sortBy, sortOrder } = state;
+	const { query, videoSource, showFailedOnly, showNotAutoDownloadOnly, sortBy, sortOrder } = state;
 	const params = new URLSearchParams();
 	if (state.currentPage > 0) {
 		params.set('page', String(state.currentPage));
@@ -36,6 +38,9 @@ export const ToQuery = (state: AppState): string => {
 	}
 	if (showFailedOnly) {
 		params.set('show_failed_only', 'true');
+	}
+	if (showNotAutoDownloadOnly) {
+		params.set('show_not_auto_download_only', 'true');
 	}
 	// 只有非默认排序时才添加到URL
 	if (sortBy !== 'id' || sortOrder !== 'desc') {
@@ -88,11 +93,19 @@ export const setShowFailedOnly = (showFailedOnly: boolean) => {
 	}));
 };
 
+export const setShowNotAutoDownloadOnly = (showNotAutoDownloadOnly: boolean) => {
+	appStateStore.update((state) => ({
+		...state,
+		showNotAutoDownloadOnly
+	}));
+};
+
 export const setAll = (
 	query: string,
 	currentPage: number,
 	videoSource: { type: string; id: string } | null,
 	showFailedOnly: boolean = false,
+	showNotAutoDownloadOnly: boolean = false,
 	sortBy: SortBy = 'id',
 	sortOrder: SortOrder = 'desc'
 ) => {
@@ -101,6 +114,7 @@ export const setAll = (
 		currentPage,
 		videoSource,
 		showFailedOnly,
+		showNotAutoDownloadOnly,
 		sortBy,
 		sortOrder
 	});
