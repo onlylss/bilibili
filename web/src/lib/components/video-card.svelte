@@ -265,18 +265,17 @@
 	}
 </script>
 
-<Card class="{cardClasses} relative overflow-hidden">
+<Card class="{cardClasses} relative overflow-hidden p-0 hover:shadow-lg transition-shadow cursor-pointer" onclick={handleViewDetail}>
 	<!-- 封面图片 -->
 	{#if video.cover && mode === 'default'}
-		<div class="relative overflow-hidden rounded-t-lg">
-			<!-- 前景清晰图片 -->
+		<div class="relative overflow-hidden bg-black">
+			<!-- 封面图片 -->
 			<img
 				src={getProxiedImageUrl(video.cover)}
 				alt={displayTitle}
-				class="aspect-video w-full object-cover transition-transform duration-200 group-hover:scale-105"
+				class="aspect-video w-full object-cover transition-transform duration-200 group-hover:scale-105 block"
 				loading="lazy"
 				on:error={(e) => {
-					// 封面加载失败时隐藏整个封面容器
 					const target = e.currentTarget as HTMLImageElement;
 					const container = target.closest('.relative') as HTMLElement;
 					if (container) {
@@ -284,155 +283,98 @@
 					}
 				}}
 			/>
-			<!-- 选择模式复选框覆盖在封面左上角 -->
+
+			<!-- 遮罩层 - 底部渐变 -->
+			<div class="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/60 to-transparent"></div>
+
+			<!-- 选择模式复选框 -->
 			{#if selectionMode}
-				<div class="absolute top-2 left-2 z-20">
+				<div class="absolute top-1.5 left-1.5 z-20" onclick={(e) => e.stopPropagation()}>
 					<input
 						type="checkbox"
 						checked={selected}
 						on:change={handleSelectionChange}
-						class="h-5 w-5 rounded border-2 border-white bg-white/80 text-blue-600 shadow-lg backdrop-blur-sm focus:ring-2 focus:ring-blue-500 focus:ring-offset-0"
+						class="h-4 w-4 rounded border-2 border-white bg-white/90 text-blue-600 shadow-lg focus:ring-2 focus:ring-blue-500 focus:ring-offset-0"
 					/>
 				</div>
 			{/if}
 
-			<!-- 状态徽章覆盖在封面上 -->
-			<div class="absolute bottom-1 right-1 z-20">
-				<Badge variant={overallStatus.color} class="shrink-0 text-[10px] px-1.5 py-0 shadow-sm">
-					{overallStatus.text}
-				</Badge>
+			<!-- 右上角状态标签 -->
+			{#if overallStatus.text !== '全部完成'}
+				<div class="absolute top-1.5 right-1.5 z-20">
+					<Badge variant={overallStatus.color} class="text-[10px] px-1.5 py-0.5 shadow-md">
+						{overallStatus.text}
+					</Badge>
+				</div>
+			{/if}
+
+			<!-- 左下角信息（B站风格） -->
+			<div class="absolute bottom-1.5 left-1.5 z-20 flex items-center gap-2 text-white text-[11px] font-medium">
+				<!-- 下载进度信息 -->
+				<span class="flex items-center gap-0.5">
+					<svg class="h-3 w-3" fill="currentColor" viewBox="0 0 24 24">
+						<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+					</svg>
+					{completed}/{total}
+				</span>
+			</div>
+
+			<!-- 右下角时长（B站风格） -->
+			<div class="absolute bottom-1.5 right-1.5 z-20 bg-black/75 px-1 py-0.5 rounded text-white text-[11px] font-medium">
+				{completed === total ? '已完成' : '进行中'}
 			</div>
 		</div>
 	{/if}
 
-	<CardHeader class="{mode === 'default' ? 'flex-shrink-0 p-2 pb-1' : 'pb-3'} relative">
-		<div class="flex min-w-0 items-start justify-between gap-2">
-			<!-- 选择模式复选框（无封面时显示） -->
-			{#if selectionMode && (!video.cover || mode !== 'default')}
-				<input
-					type="checkbox"
-					checked={selected}
-					on:change={handleSelectionChange}
-					class="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-0"
-				/>
-			{/if}
-			<CardTitle
-				class="line-clamp-2 min-w-0 flex-1 cursor-default text-xs leading-snug"
-				title={displayTitle}
-			>
-				{#if getBangumiName(video)}
-					<!-- 两行显示：番剧名 + 集数信息 -->
-					<div class="space-y-0.5">
-						<div class="text-primary line-clamp-1 leading-snug font-medium">
-							{getBangumiName(video)}
-						</div>
-						<div class="text-muted-foreground line-clamp-1 text-[11px] leading-snug">
-							{getEpisodeInfo(video)}
-						</div>
-					</div>
-				{:else}
-					<!-- 单行显示：原始标题 -->
-					<div class="text-primary line-clamp-2 leading-snug font-normal">{displayTitle}</div>
-				{/if}
-			</CardTitle>
-			{#if !video.cover || mode !== 'default'}
-				<Badge variant={overallStatus.color} class="shrink-0 text-[10px] px-1.5 py-0">
-					{overallStatus.text}
-				</Badge>
+	<!-- 标题和UP主信息区域（B站风格） -->
+	<div class="p-2 space-y-1">
+		<!-- 标题 -->
+		<div class="line-clamp-2 text-sm leading-tight text-foreground" title={displayTitle}>
+			{#if getBangumiName(video)}
+				{getBangumiName(video)} · {getEpisodeInfo(video)}
+			{:else}
+				{displayTitle}
 			{/if}
 		</div>
-		{#if displaySubtitle}
-			<div class="text-muted-foreground flex min-w-0 items-center gap-1 text-[11px] mt-0.5">
-				{#if showUserIcon}
-					<UserIcon class="h-2.5 w-2.5 shrink-0" />
-				{/if}
-				<span class="min-w-0 cursor-default truncate" title={displaySubtitle}>
-					{displaySubtitle}
-				</span>
+
+		<!-- UP主信息 -->
+		<div class="flex items-center justify-between text-[11px] text-muted-foreground">
+			<div class="flex items-center gap-1 min-w-0">
+				<UserIcon class="h-3 w-3 shrink-0 opacity-70" />
+				<span class="truncate">{displaySubtitle || video.upper_name}</span>
 			</div>
-		{/if}
-	</CardHeader>
-	<CardContent
-		class="{mode === 'default'
-			? 'flex min-w-0 flex-1 flex-col justify-end p-2 pt-0'
-			: 'pt-0'} relative"
-	>
-		<div class="space-y-1.5">
-			<!-- 进度条区域 -->
-			{#if showProgress}
-				<div class="space-y-1">
-					<div
-						class="text-muted-foreground flex justify-between text-[10px]"
-					>
-						<span class="truncate">进度</span>
-						<span class="shrink-0">{completed}/{total}</span>
-					</div>
-
-					<!-- 进度条 -->
-					<div class="flex w-full gap-0.5">
-						{#each activeTasks as task (task.index)}
-							<Tooltip.Root>
-								<Tooltip.Trigger class="flex-1">
-									<div
-										class="h-1 w-full cursor-help rounded-sm transition-all {getSegmentColor(
-											task.status
-										)}"
-									></div>
-								</Tooltip.Trigger>
-								<Tooltip.Content>
-									<p class="text-xs">{getTaskName(task.index)}: {getStatusText(task.status)}</p>
-								</Tooltip.Content>
-							</Tooltip.Root>
-						{/each}
-					</div>
-				</div>
-			{/if}
-
-			<!-- 操作按钮 -->
-			{#if showActions && (mode === 'default' || mode === 'detail')}
-				<div class="flex min-w-0 gap-1">
-					{#if mode === 'default'}
+			<!-- 操作按钮组 - hover显示 -->
+			{#if !selectionMode}
+				<div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onclick={(e) => e.stopPropagation()}>
+					{#if !video.auto_download}
 						<Button
 							size="sm"
-							variant="outline"
-							class="min-w-0 flex-1 cursor-pointer px-1.5 py-0.5 text-[11px] h-6"
-							onclick={handleViewDetail}
+							variant="ghost"
+							class="h-5 w-5 p-0"
+							onclick={handleMarkForDownload}
+							disabled={downloadingVideo}
+							title="标记下载"
 						>
-							<InfoIcon class="mr-0.5 h-2.5 w-2.5 shrink-0" />
-							<span class="truncate">详情</span>
+							<DownloadIcon class="h-3 w-3" />
 						</Button>
-					{/if}
-					<!-- 下载按钮 - 仅当视频未标记为自动下载时显示 -->
-					{#if !video.auto_download}
-						<Tooltip.Root>
-							<Tooltip.Trigger>
-								<Button
-									size="sm"
-									variant="default"
-									class="{mode === 'detail' ? 'w-full' : 'shrink-0'} cursor-pointer px-1.5 py-0.5 text-[11px] h-6"
-									onclick={handleMarkForDownload}
-									disabled={downloadingVideo}
-								>
-									<DownloadIcon class="h-2.5 w-2.5 {mode === 'detail' ? 'mr-0.5' : ''}" />
-									{mode === 'detail' ? (downloadingVideo ? '标记中...' : '下载') : ''}
-								</Button>
-							</Tooltip.Trigger>
-							<Tooltip.Content>
-								<p class="text-xs">标记此视频为自动下载</p>
-							</Tooltip.Content>
-						</Tooltip.Root>
 					{/if}
 					<Button
 						size="sm"
-						variant="outline"
-						class="{mode === 'detail' ? 'w-full' : 'shrink-0'} cursor-pointer px-1.5 py-0.5 text-[11px] h-6"
+						variant="ghost"
+						class="h-5 w-5 p-0"
 						onclick={() => (resetDialogOpen = true)}
+						title="重置"
 					>
-						<RotateCcwIcon class="h-2.5 w-2.5 {mode === 'detail' ? 'mr-0.5' : ''}" />
-						{mode === 'detail' ? '重置' : ''}
+						<RotateCcwIcon class="h-3 w-3" />
 					</Button>
 				</div>
 			{/if}
+		</div>
+	</div>
+
+	<!-- 隐藏的内容区域（保留原有功能） -->
+	<CardContent class="hidden">
+		<div class="space-y-1.5">
 
 			<!-- 路径信息 -->
 			{#if video.path && mode === 'detail'}
