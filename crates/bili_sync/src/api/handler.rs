@@ -1622,11 +1622,6 @@ pub async fn update_video_auto_download(
 
     info!("视频 ID {} 的自动下载标志已更新为: {}", id, request.auto_download);
 
-    // 如果设置为自动下载，触发立即扫描
-    if request.auto_download {
-        crate::task::resume_scanning();
-    }
-
     Ok(ApiResponse::ok(UpdateVideoAutoDownloadResponse {
         success: true,
         video_id: id,
