@@ -78,6 +78,7 @@
 			videoSource,
 			pageNum: parseInt(searchParams.get('page') || '0'),
 			showFailedOnly: searchParams.get('show_failed_only') === 'true',
+			showNotAutoDownloadOnly: searchParams.get('show_not_auto_download_only') === 'true',
 			sortBy: (searchParams.get('sort_by') as SortBy) || 'id',
 			sortOrder: (searchParams.get('sort_order') as SortOrder) || 'desc'
 		};
@@ -88,6 +89,7 @@
 		pageNum: number = 0,
 		filter?: { type: string; id: string } | null,
 		showFailedOnly: boolean = false,
+		showNotAutoDownloadOnly: boolean = false,
 		sortBy: SortBy = 'id',
 		sortOrder: SortOrder = 'desc'
 	) {
@@ -107,6 +109,9 @@
 			}
 			if (showFailedOnly) {
 				params.show_failed_only = true;
+			}
+			if (showNotAutoDownloadOnly) {
+				params.show_not_auto_download_only = true;
 			}
 
 			const result = await api.getVideos(params);
@@ -141,10 +146,11 @@
 			videoSource,
 			pageNum,
 			showFailedOnly: showFailedOnlyParam,
+			showNotAutoDownloadOnly: showNotAutoDownloadOnlyParam,
 			sortBy,
 			sortOrder
 		} = getApiParams(searchParams);
-		setAll(query, pageNum, videoSource, showFailedOnlyParam, sortBy, sortOrder);
+		setAll(query, pageNum, videoSource, showFailedOnlyParam, showNotAutoDownloadOnlyParam, sortBy, sortOrder);
 
 		// 同步筛选状态
 		if (videoSource) {
@@ -155,10 +161,11 @@
 			selectedSourceId = '';
 		}
 		showFailedOnly = showFailedOnlyParam;
+		showNotAutoDownloadOnly = showNotAutoDownloadOnlyParam;
 		currentSortBy = sortBy;
 		currentSortOrder = sortOrder;
 
-		loadVideos(query, pageNum, videoSource, showFailedOnlyParam, sortBy, sortOrder);
+		loadVideos(query, pageNum, videoSource, showFailedOnlyParam, showNotAutoDownloadOnlyParam, sortBy, sortOrder);
 	}
 
 	async function handleResetVideo(video: VideoInfo, forceReset: boolean) {
@@ -169,9 +176,9 @@
 				toast.success('重置成功', {
 					description: `视频「${video.name}」已重置`
 				});
-				const { query, currentPage, videoSource, showFailedOnly, sortBy, sortOrder } =
+				const { query, currentPage, videoSource, showFailedOnly, showNotAutoDownloadOnly, sortBy, sortOrder } =
 					$appStateStore;
-				await loadVideos(query, currentPage, videoSource, showFailedOnly, sortBy, sortOrder);
+				await loadVideos(query, currentPage, videoSource, showFailedOnly, showNotAutoDownloadOnly, sortBy, sortOrder);
 			} else {
 				toast.info('重置无效', {
 					description: `视频「${video.name}」没有失败的状态，无需重置`
@@ -252,6 +259,7 @@
 						currentPage,
 						videoSource: currentVideoSource,
 						showFailedOnly,
+						showNotAutoDownloadOnly,
 						sortBy,
 						sortOrder
 					} = $appStateStore;
@@ -260,6 +268,7 @@
 						currentPage,
 						currentVideoSource,
 						showFailedOnly,
+						showNotAutoDownloadOnly,
 						sortBy,
 						sortOrder
 					);
@@ -391,9 +400,9 @@
 				});
 
 				// 重新加载视频列表
-				const { query, currentPage, videoSource, showFailedOnly, sortBy, sortOrder } =
+				const { query, currentPage, videoSource, showFailedOnly, showNotAutoDownloadOnly, sortBy, sortOrder } =
 					$appStateStore;
-				await loadVideos(query, currentPage, videoSource, showFailedOnly, sortBy, sortOrder);
+				await loadVideos(query, currentPage, videoSource, showFailedOnly, showNotAutoDownloadOnly, sortBy, sortOrder);
 
 				// 清空选择
 				clearSelection();
