@@ -275,7 +275,7 @@
 				alt={displayTitle}
 				class="aspect-video w-full object-cover transition-transform duration-200 group-hover:scale-105 block"
 				loading="lazy"
-				on:error={(e) => {
+				onerror={(e) => {
 					const target = e.currentTarget as HTMLImageElement;
 					const container = target.closest('.relative') as HTMLElement;
 					if (container) {
@@ -293,7 +293,7 @@
 					<input
 						type="checkbox"
 						checked={selected}
-						on:change={handleSelectionChange}
+						onchange={handleSelectionChange}
 						class="h-4 w-4 rounded border-2 border-white bg-white/90 text-blue-600 shadow-lg focus:ring-2 focus:ring-blue-500 focus:ring-offset-0"
 					/>
 				</div>
