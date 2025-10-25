@@ -693,7 +693,7 @@
 			<div class="text-muted-foreground">加载中...</div>
 		</div>
 	{:else if videosData?.videos.length}
-		<div class="grid gap-3" style="grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));">
+		<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
 			{#each videosData.videos as video (video.id)}
 				<VideoCard
 					{video}

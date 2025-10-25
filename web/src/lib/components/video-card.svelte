@@ -343,9 +343,9 @@
 				<UserIcon class="h-3 w-3 shrink-0 opacity-70" />
 				<span class="truncate">{displaySubtitle || video.upper_name}</span>
 			</div>
-			<!-- 操作按钮组 - hover显示 -->
+			<!-- 操作按钮组 - 手机端始终显示，桌面端hover显示 -->
 			{#if !selectionMode}
-				<div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onclick={(e) => e.stopPropagation()}>
+				<div class="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity" onclick={(e) => e.stopPropagation()}>
 					{#if !video.auto_download}
 						<Button
 							size="sm"
