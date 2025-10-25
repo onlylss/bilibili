@@ -10477,8 +10477,9 @@ async fn reset_nfo_tasks_for_config_change(db: Arc<DatabaseConnection>) -> Resul
             video::Column::Category,
             video::Column::DownloadStatus,
             video::Column::Cover,
+            video::Column::AutoDownload,
         ])
-        .into_tuple::<(i32, String, String, String, i32, u32, String)>()
+        .into_tuple::<(i32, String, String, String, i32, u32, String, bool)>()
         .all(db.as_ref())
         .await?;
 
