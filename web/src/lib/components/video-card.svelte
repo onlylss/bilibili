@@ -119,6 +119,19 @@
 					toast.success('重置成功', {
 						description: `已重置 ${response.data.pages.length} 个分P${force ? ' (强制重置)' : ''}`
 					});
+
+					// 重新获取最新的视频状态
+					try {
+						const videoResponse = await api.getVideo(video.id);
+						if (videoResponse.data.video) {
+							// 更新本地视频对象的下载状态
+							video.download_status = videoResponse.data.video.download_status;
+							video.auto_download = videoResponse.data.video.auto_download;
+							video = video; // 触发 Svelte 响应式更新
+						}
+					} catch (err) {
+						console.error('获取最新视频状态失败:', err);
+					}
 				} else {
 					if (force) {
 						toast.info('无任务可重置', {
@@ -130,10 +143,6 @@
 						});
 					}
 				}
-				// 稍后刷新页面
-				setTimeout(() => {
-					window.location.reload();
-				}, 1000);
 			}
 		} catch (error) {
 			console.error('重置失败:', error);
@@ -167,12 +176,9 @@
 				toast.success('标记成功', {
 					description: response.data.message
 				});
-				// 更新本地状态
+				// 更新本地状态，触发响应式更新
 				video.auto_download = true;
-				// 稍后刷新页面
-				setTimeout(() => {
-					window.location.reload();
-				}, 1000);
+				video = video; // 触发 Svelte 响应式更新
 			}
 		} catch (error) {
 			console.error('标记下载失败:', error);
@@ -308,20 +314,15 @@
 				</div>
 			{/if}
 
-			<!-- 左下角信息（B站风格） -->
+			<!-- 左下角进度信息（B站风格） -->
 			<div class="absolute bottom-1.5 left-1.5 z-20 flex items-center gap-2 text-white text-[11px] font-medium">
 				<!-- 下载进度信息 -->
-				<span class="flex items-center gap-0.5">
+				<span class="flex items-center gap-0.5 bg-black/75 px-1.5 py-0.5 rounded">
 					<svg class="h-3 w-3" fill="currentColor" viewBox="0 0 24 24">
 						<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
 					</svg>
 					{completed}/{total}
 				</span>
-			</div>
-
-			<!-- 右下角时长（B站风格） -->
-			<div class="absolute bottom-1.5 right-1.5 z-20 bg-black/75 px-1 py-0.5 rounded text-white text-[11px] font-medium">
-				{completed === total ? '已完成' : '进行中'}
 			</div>
 		</div>
 	{/if}

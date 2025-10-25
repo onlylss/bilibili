@@ -295,6 +295,7 @@
 			0,
 			{ type: sourceType, id: sourceId },
 			showFailedOnly,
+			showNotAutoDownloadOnly,
 			currentSortBy,
 			currentSortOrder
 		);
@@ -305,9 +306,10 @@
 		selectedSourceType = '';
 		selectedSourceId = '';
 		showFailedOnly = false;
+		showNotAutoDownloadOnly = false;
 		currentSortBy = 'id';
 		currentSortOrder = 'desc';
-		setAll('', 0, null, false, 'id', 'desc');
+		setAll('', 0, null, false, false, 'id', 'desc');
 		goto('/videos');
 	}
 
