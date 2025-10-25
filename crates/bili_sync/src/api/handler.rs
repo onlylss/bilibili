@@ -617,6 +617,7 @@ pub async fn get_videos(
                 i32,
                 u32,
                 String,
+                bool,
                 Option<String>,
                 Option<i32>,
             );
@@ -630,6 +631,7 @@ pub async fn get_videos(
                     video::Column::Category,
                     video::Column::DownloadStatus,
                     video::Column::Cover,
+                    video::Column::AutoDownload,
                     video::Column::SeasonId,
                     video::Column::SourceType,
                 ])
@@ -641,6 +643,7 @@ pub async fn get_videos(
                     i32,
                     u32,
                     String,
+                    bool,
                     Option<String>,
                     Option<i32>,
                 )>()
@@ -652,7 +655,7 @@ pub async fn get_videos(
             let mut videos: Vec<VideoInfo> = raw_videos
                 .iter()
                 .map(
-                    |(id, name, upper_name, path, category, download_status, cover, _season_id, _source_type)| {
+                    |(id, name, upper_name, path, category, download_status, cover, auto_download, _season_id, _source_type)| {
                         VideoInfo::from((
                             *id,
                             name.clone(),
@@ -661,13 +664,14 @@ pub async fn get_videos(
                             *category,
                             *download_status,
                             cover.clone(),
+                            *auto_download,
                         ))
                     },
                 )
                 .collect();
 
             // 为番剧类型的视频填充真实标题
-            for (i, (_id, _name, _upper_name, _path, _category, _download_status, _cover, season_id, source_type)) in
+            for (i, (_id, _name, _upper_name, _path, _category, _download_status, _cover, _auto_download, season_id, source_type)) in
                 raw_videos.iter().enumerate()
             {
                 if *source_type == Some(1) && season_id.is_some() {
@@ -714,6 +718,7 @@ pub async fn get_video(
             video::Column::Category,
             video::Column::DownloadStatus,
             video::Column::Cover,
+            video::Column::AutoDownload,
             video::Column::SeasonId,
             video::Column::SourceType,
         ])
@@ -725,19 +730,20 @@ pub async fn get_video(
             i32,
             u32,
             String,
+            bool,
             Option<String>,
             Option<i32>,
         )>()
         .one(db.as_ref())
         .await?;
 
-    let Some((_id, name, upper_name, path, category, download_status, cover, season_id, source_type)) = raw_video
+    let Some((_id, name, upper_name, path, category, download_status, cover, auto_download, season_id, source_type)) = raw_video
     else {
         return Err(InnerApiError::NotFound(id).into());
     };
 
     // 创建VideoInfo并填充bangumi_title
-    let mut video_info = VideoInfo::from((_id, name, upper_name, path, category, download_status, cover));
+    let mut video_info = VideoInfo::from((_id, name, upper_name, path, category, download_status, cover, auto_download));
 
     // 为番剧类型的视频填充真实标题
     if source_type == Some(1) && season_id.is_some() {
@@ -812,8 +818,9 @@ pub async fn reset_video(
                 video::Column::Category,
                 video::Column::DownloadStatus,
                 video::Column::Cover,
+                video::Column::AutoDownload,
             ])
-            .into_tuple::<(i32, String, String, String, i32, u32, String)>()
+            .into_tuple::<(i32, String, String, String, i32, u32, String, bool)>()
             .one(db.as_ref()),
         page::Entity::find()
             .filter(page::Column::VideoId.eq(id))
@@ -981,8 +988,9 @@ pub async fn reset_all_videos(
                 video::Column::Category,
                 video::Column::DownloadStatus,
                 video::Column::Cover,
+                video::Column::AutoDownload,
             ])
-            .into_tuple::<(i32, String, String, String, i32, u32, String)>()
+            .into_tuple::<(i32, String, String, String, i32, u32, String, bool)>()
             .all(db.as_ref()),
         page::Entity::find()
             .inner_join(video::Entity)
@@ -1204,8 +1212,9 @@ pub async fn reset_specific_tasks(
                 video::Column::Category,
                 video::Column::DownloadStatus,
                 video::Column::Cover,
+                video::Column::AutoDownload,
             ])
-            .into_tuple::<(i32, String, String, String, i32, u32, String)>()
+            .into_tuple::<(i32, String, String, String, i32, u32, String, bool)>()
             .all(db.as_ref()),
         page::Entity::find()
             .inner_join(video::Entity)
@@ -1483,8 +1492,9 @@ pub async fn update_video_status(
                 video::Column::Category,
                 video::Column::DownloadStatus,
                 video::Column::Cover,
+                video::Column::AutoDownload,
             ])
-            .into_tuple::<(i32, String, String, String, i32, u32, String)>()
+            .into_tuple::<(i32, String, String, String, i32, u32, String, bool)>()
             .one(db.as_ref()),
         page::Entity::find()
             .filter(page::Column::VideoId.eq(id))
