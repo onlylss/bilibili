@@ -87,9 +87,27 @@
 		}
 	}
 
-	$: overallStatus = getOverallStatus(video.download_status, video.auto_download);
-	$: completed = video.download_status.filter((status) => status === 7).length;
-	$: total = video.download_status.length;
+	// 过滤出实际执行的任务（隐藏被禁用的任务）
+	// 根据提交 5f42566c8d25ea1b64367c3c385d689afd1d97e1，大部分任务已被禁用
+	// VideoStatus: 只保留第4个任务（分P下载）
+	// PageStatus: 只保留第1个（视频内容）和第3个（弹幕）任务
+	function getActiveTasksWithStatus(downloadStatus: number[]): { index: number; status: number }[] {
+		if (taskNames.length > 0) {
+			// 自定义任务名称，显示所有任务
+			return downloadStatus.map((status, index) => ({ index, status }));
+		}
+
+		// 对于标准的 VideoStatus（5个任务），只显示第4个任务（分P下载）
+		// 其他任务（封面、信息、UP主头像、UP主信息）都已被禁用
+		return [{ index: 4, status: downloadStatus[4] }];
+	}
+
+	// 只计算实际执行任务的进度
+	$: activeTasks = getActiveTasksWithStatus(video.download_status);
+	$: activeStatuses = activeTasks.map(t => t.status);
+	$: overallStatus = getOverallStatus(activeStatuses, video.auto_download);
+	$: completed = activeStatuses.filter((status) => status === 7).length;
+	$: total = activeStatuses.length;
 
 	async function handleReset(force: boolean = false) {
 		resetting = true;
@@ -364,17 +382,17 @@
 
 					<!-- 进度条 -->
 					<div class="flex w-full {gap}">
-						{#each video.download_status as status, index (index)}
+						{#each activeTasks as task (task.index)}
 							<Tooltip.Root>
 								<Tooltip.Trigger class="flex-1">
 									<div
 										class="{progressHeight} w-full cursor-help rounded-sm transition-all {getSegmentColor(
-											status
+											task.status
 										)}"
 									></div>
 								</Tooltip.Trigger>
 								<Tooltip.Content>
-									<p>{getTaskName(index)}: {getStatusText(status)}</p>
+									<p>{getTaskName(task.index)}: {getStatusText(task.status)}</p>
 								</Tooltip.Content>
 							</Tooltip.Root>
 						{/each}

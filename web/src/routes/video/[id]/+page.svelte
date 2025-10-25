@@ -487,24 +487,28 @@
 
 								<!-- 下载进度条 -->
 								<div class="space-y-2 px-1">
+									{@const activeTasks = [
+										{ index: 1, name: '视频内容', status: pageInfo.download_status[1] },
+										{ index: 3, name: '视频弹幕', status: pageInfo.download_status[3] }
+									]}
+									{@const completedCount = activeTasks.filter((t) => t.status === 7).length}
 									<div class="text-muted-foreground flex justify-between text-xs">
 										<span class="truncate">下载进度</span>
-										<span class="shrink-0"
-											>{pageInfo.download_status.filter((s) => s === 7).length}/{pageInfo
-												.download_status.length}</span
-										>
+										<span class="shrink-0">{completedCount}/{activeTasks.length}</span>
 									</div>
 									<div class="flex w-full gap-1">
-										{#each pageInfo.download_status as status, taskIndex (taskIndex)}
+										{#each activeTasks as task (task.index)}
 											<div
-												class="h-2 w-full cursor-help rounded-sm transition-all {status === 7
+												class="h-2 w-full cursor-help rounded-sm transition-all {task.status === 7
 													? 'bg-green-500'
-													: status === 0
+													: task.status === 0
 														? 'bg-yellow-500'
 														: 'bg-red-500'}"
-												title="{['视频封面', '视频内容', '视频信息', '视频弹幕', '视频字幕'][
-													taskIndex
-												]}: {status === 7 ? '已完成' : status === 0 ? '未开始' : `失败${status}次`}"
+												title="{task.name}: {task.status === 7
+													? '已完成'
+													: task.status === 0
+														? '未开始'
+														: `失败${task.status}次`}"
 											></div>
 										{/each}
 									</div>
