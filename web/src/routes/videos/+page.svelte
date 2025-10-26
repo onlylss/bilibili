@@ -288,6 +288,24 @@
 	}
 
 	function handleSourceFilter(sourceType: string, sourceId: string) {
+		// 如果点击的是当前已选中的视频源，则取消选中（toggle功能）
+		if (selectedSourceType === sourceType && selectedSourceId === sourceId) {
+			selectedSourceType = '';
+			selectedSourceId = '';
+			setAll(
+				'',
+				0,
+				null, // 清除视频源筛选
+				showFailedOnly,
+				showNotAutoDownloadOnly,
+				currentSortBy,
+				currentSortOrder
+			);
+			goto(`/videos?${ToQuery($appStateStore)}`);
+			return;
+		}
+
+		// 选中新的视频源
 		selectedSourceType = sourceType;
 		selectedSourceId = sourceId;
 		setAll(
