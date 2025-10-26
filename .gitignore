@@ -126,3 +126,6 @@ config_migration_fix.md
 cursor_.md
 *.py
 .claude/agents/
+
+# Spec workflow files
+.spec-workflow/
