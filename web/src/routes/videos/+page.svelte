@@ -73,6 +73,9 @@
 	let batchDeleting = false;
 	let batchDeleteDialogOpen = false;
 
+	// 快速页码选择
+	let showPageSelector = false;
+
 	function getApiParams(searchParams: URLSearchParams) {
 		let videoSource = null;
 		for (const source of Object.values(VIDEO_SOURCES)) {
@@ -934,3 +937,91 @@
 		</AlertDialog.Footer>
 	</AlertDialog.Content>
 </AlertDialog.Root>
+
+<!-- 快速页码选择悬浮按钮（KISS原则：简洁优雅的交互设计）-->
+{#if totalPages > 1}
+	<!-- 遮罩层 -->
+	{#if showPageSelector}
+		<div
+			class="fixed inset-0 z-40"
+			onclick={() => (showPageSelector = false)}
+			role="button"
+			tabindex="-1"
+		></div>
+	{/if}
+
+	<!-- 悬浮按钮 -->
+	<button
+		class="bg-primary text-primary-foreground hover:bg-primary/90 fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-all hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2"
+		onclick={() => (showPageSelector = !showPageSelector)}
+		title="快速跳转页码"
+	>
+		<svg
+			xmlns="http://www.w3.org/2000/svg"
+			fill="none"
+			viewBox="0 0 24 24"
+			stroke-width="2"
+			stroke="currentColor"
+			class="h-6 w-6"
+		>
+			<path
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"
+			/>
+		</svg>
+		<span class="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-blue-500 text-xs font-bold text-white">
+			{$appStateStore.currentPage + 1}
+		</span>
+	</button>
+
+	<!-- 页码选择弹出层 -->
+	{#if showPageSelector}
+		<div
+			class="bg-background fixed bottom-24 right-6 z-50 w-80 max-w-[calc(100vw-3rem)] rounded-lg border shadow-xl"
+		>
+			<div class="border-b p-3">
+				<div class="flex items-center justify-between">
+					<h3 class="text-sm font-semibold">快速跳转</h3>
+					<button
+						onclick={() => (showPageSelector = false)}
+						class="text-muted-foreground hover:text-foreground rounded-full p-1 hover:bg-gray-100 dark:hover:bg-gray-800"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-4 w-4"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+						</svg>
+					</button>
+				</div>
+				<div class="text-muted-foreground mt-1 text-xs">
+					共 {totalPages} 页，当前第 {$appStateStore.currentPage + 1} 页
+				</div>
+			</div>
+
+			<!-- 页码网格 -->
+			<div class="max-h-64 overflow-y-auto p-3">
+				<div class="grid grid-cols-5 gap-2">
+					{#each Array.from({ length: totalPages }, (_, i) => i) as pageIndex}
+						<button
+							class="rounded-md px-3 py-2 text-sm font-medium transition-colors {$appStateStore.currentPage ===
+							pageIndex
+								? 'bg-primary text-primary-foreground'
+								: 'hover:bg-muted bg-secondary text-secondary-foreground'}"
+							onclick={() => {
+								handlePageChange(pageIndex);
+								showPageSelector = false;
+							}}
+						>
+							{pageIndex + 1}
+						</button>
+					{/each}
+				</div>
+			</div>
+		</div>
+	{/if}
+{/if}
