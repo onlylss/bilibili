@@ -36,9 +36,10 @@
 	let lastSearch: string | null = null;
 
 	// 响应式列数检测与动态 pageSize（KISS原则：简洁优雅的解决方案）
+	// 使用内容容器宽度而非窗口宽度，确保侧边栏展开时计算准确
 	// 提高4/5/6列的阈值，避免在临界尺寸时卡片过于拥挤
-	let innerWidth: number = 0;
-	$: columnsCount = innerWidth >= 1520 ? 6 : innerWidth >= 1200 ? 5 : innerWidth >= 920 ? 4 : innerWidth >= 640 ? 3 : 2;
+	let containerWidth: number = 0;
+	$: columnsCount = containerWidth >= 1520 ? 6 : containerWidth >= 1200 ? 5 : containerWidth >= 920 ? 4 : containerWidth >= 640 ? 3 : 2;
 
 	// 动态计算每页数量：每页显示5行，确保最后一行始终填满（YAGNI：只在需要时重新计算）
 	const rowsPerPage = 5;
@@ -476,9 +477,7 @@
 	<title>视频管理 - Bili Sync</title>
 </svelte:head>
 
-<svelte:window bind:innerWidth />
-
-<div class="space-y-6">
+<div class="space-y-6" bind:clientWidth={containerWidth}>
 	<!-- 搜索和筛选栏 -->
 	<div class="flex flex-col gap-4">
 		<!-- 搜索栏 -->
