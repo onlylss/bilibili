@@ -30,12 +30,18 @@
 	} from '$lib/stores/filter';
 	import type { SortBy, SortOrder } from '$lib/types';
 
-	const pageSize = 20;
-
 	let videosData: VideosResponse | null = null;
 	let videoSources: VideoSourcesResponse | null = null;
 	let loading = false;
 	let lastSearch: string | null = null;
+
+	// 响应式列数检测与动态 pageSize（KISS原则：简洁优雅的解决方案）
+	let innerWidth: number = 0;
+	$: columnsCount = innerWidth >= 1280 ? 6 : innerWidth >= 1024 ? 5 : innerWidth >= 768 ? 4 : innerWidth >= 640 ? 3 : 2;
+
+	// 动态计算每页数量：每页显示5行，确保最后一行始终填满（YAGNI：只在需要时重新计算）
+	const rowsPerPage = 5;
+	$: pageSize = columnsCount * rowsPerPage;
 
 	// 重置对话框
 	let resetAllDialogOpen = false;
@@ -442,9 +448,19 @@
 		}
 	}
 
+	// 监听 URL 参数变化
 	$: if ($page.url.search !== lastSearch) {
 		lastSearch = $page.url.search;
 		handleSearchParamsChange($page.url.searchParams);
+	}
+
+	// 当 pageSize 改变时重新加载当前页数据（响应式窗口调整）
+	let lastPageSize = pageSize;
+	$: if (pageSize !== lastPageSize && videosData) {
+		lastPageSize = pageSize;
+		const { query, currentPage, videoSource, showFailedOnly, showNotAutoDownloadOnly, sortBy, sortOrder } =
+			$appStateStore;
+		loadVideos(query, currentPage, videoSource, showFailedOnly, showNotAutoDownloadOnly, sortBy, sortOrder);
 	}
 
 	$: totalPages = videosData ? Math.ceil(videosData.total_count / pageSize) : 0;
@@ -458,6 +474,8 @@
 <svelte:head>
 	<title>视频管理 - Bili Sync</title>
 </svelte:head>
+
+<svelte:window bind:innerWidth />
 
 <div class="space-y-6">
 	<!-- 搜索和筛选栏 -->
@@ -713,6 +731,7 @@
 			<div class="text-muted-foreground">加载中...</div>
 		</div>
 	{:else if videosData?.videos.length}
+		<!-- 动态响应式网格：自动根据屏幕尺寸调整列数，每页数量保证最后一行填满 -->
 		<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
 			{#each videosData.videos as video (video.id)}
 				<VideoCard
