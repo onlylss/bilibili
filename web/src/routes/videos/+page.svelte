@@ -733,7 +733,7 @@
 		</div>
 	{:else if videosData?.videos.length}
 		<!-- 动态响应式网格：自动根据屏幕尺寸调整列数，每页数量保证最后一行填满 -->
-		<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+		<div class="grid gap-3" style="grid-template-columns: repeat({columnsCount}, minmax(0, 1fr))">
 			{#each videosData.videos as video (video.id)}
 				<VideoCard
 					{video}
