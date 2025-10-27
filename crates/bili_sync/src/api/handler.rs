@@ -8727,14 +8727,7 @@ pub async fn run_now_endpoint() -> Result<ApiResponse<crate::api::response::Task
 
     // 如果任务正在运行，返回错误
     if is_scanning {
-        return Err(ApiError {
-            error_type: crate::api::response::ErrorType::ValidationError,
-            message: "任务正在运行中，请等待当前任务完成后再试".to_string(),
-            should_retry: false,
-            should_ignore: false,
-            status: Some(400),
-            timestamp: chrono::Local::now().to_rfc3339(),
-        });
+        return Err(ApiError::from(anyhow!("任务正在运行中，请等待当前任务完成后再试")));
     }
 
     // 如果任务已暂停，先恢复任务

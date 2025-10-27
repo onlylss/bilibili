@@ -59,6 +59,7 @@ use crate::api::handler::{
     reset_video,
     reset_video_source_path,
     resume_scanning_endpoint,
+    run_now_endpoint,
     search_bilibili,
     setup_auth_token,
     test_notification_handler,
