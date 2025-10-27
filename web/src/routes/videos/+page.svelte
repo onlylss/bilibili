@@ -3,7 +3,6 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import VideoCard from '$lib/components/video-card.svelte';
-	import Pagination from '$lib/components/pagination.svelte';
 	import SearchBar from '$lib/components/search-bar.svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as AlertDialog from '$lib/components/ui/alert-dialog/index.js';
@@ -748,15 +747,6 @@
 				/>
 			{/each}
 		</div>
-
-		<!-- 分页 -->
-		{#if totalPages > 1}
-			<Pagination
-				currentPage={$appStateStore.currentPage}
-				{totalPages}
-				onPageChange={handlePageChange}
-			/>
-		{/if}
 	{:else}
 		<div class="flex items-center justify-center py-16">
 			<div class="space-y-2 text-center">
