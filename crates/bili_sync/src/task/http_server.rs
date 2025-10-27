@@ -227,6 +227,7 @@ pub async fn http_server(_database_connection: Arc<DatabaseConnection>) -> Resul
         .route("/api/task-control/status", get(get_task_control_status))
         .route("/api/task-control/pause", post(pause_scanning_endpoint))
         .route("/api/task-control/resume", post(resume_scanning_endpoint))
+        .route("/api/task-control/run-now", post(run_now_endpoint))
         // 推送通知API
         .route("/api/notification/test", post(test_notification_handler))
         .route("/api/config/notification", get(get_notification_config))

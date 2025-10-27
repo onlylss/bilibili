@@ -153,7 +153,7 @@ mod rename_tests {
 
 #[derive(OpenApi)]
 #[openapi(
-    paths(get_video_sources, get_videos, get_video, reset_video, reset_all_videos, reset_specific_tasks, update_video_status, add_video_source, update_video_source_enabled, update_video_source_scan_deleted, reset_video_source_path, delete_video_source, reload_config, get_config, update_config, get_bangumi_seasons, search_bilibili, get_user_favorites, get_user_collections, get_user_followings, get_subscribed_collections, get_submission_videos, get_logs, get_queue_status, proxy_image, get_config_item, get_config_history, validate_config, get_hot_reload_status, check_initial_setup, setup_auth_token, update_credential, generate_qr_code, poll_qr_status, get_current_user, clear_credential, pause_scanning_endpoint, resume_scanning_endpoint, get_task_control_status, get_video_play_info, proxy_video_stream, validate_favorite, get_user_favorites_by_uid, test_notification_handler, get_notification_config, update_notification_config, get_notification_status, test_risk_control_handler),
+    paths(get_video_sources, get_videos, get_video, reset_video, reset_all_videos, reset_specific_tasks, update_video_status, add_video_source, update_video_source_enabled, update_video_source_scan_deleted, reset_video_source_path, delete_video_source, reload_config, get_config, update_config, get_bangumi_seasons, search_bilibili, get_user_favorites, get_user_collections, get_user_followings, get_subscribed_collections, get_submission_videos, get_logs, get_queue_status, proxy_image, get_config_item, get_config_history, validate_config, get_hot_reload_status, check_initial_setup, setup_auth_token, update_credential, generate_qr_code, poll_qr_status, get_current_user, clear_credential, pause_scanning_endpoint, resume_scanning_endpoint, get_task_control_status, run_now_endpoint, get_video_play_info, proxy_video_stream, validate_favorite, get_user_favorites_by_uid, test_notification_handler, get_notification_config, update_notification_config, get_notification_status, test_risk_control_handler),
     modifiers(&OpenAPIAuth),
     security(
         ("Token" = []),
@@ -8709,6 +8709,51 @@ pub async fn get_task_control_status() -> Result<ApiResponse<crate::api::respons
             "任务空闲".to_string()
         },
     }))
+}
+
+/// 立即运行下载任务
+#[utoipa::path(
+    post,
+    path = "/api/task-control/run-now",
+    responses(
+        (status = 200, description = "成功触发立即运行", body = crate::api::response::TaskControlResponse),
+        (status = 400, description = "任务正在运行中，无法重复触发"),
+        (status = 500, description = "内部错误")
+    )
+)]
+pub async fn run_now_endpoint() -> Result<ApiResponse<crate::api::response::TaskControlResponse>, ApiError> {
+    let is_scanning = crate::task::TASK_CONTROLLER.is_scanning();
+    let is_paused = crate::task::TASK_CONTROLLER.is_paused();
+
+    // 如果任务正在运行，返回错误
+    if is_scanning {
+        return Err(ApiError {
+            error_type: crate::api::response::ErrorType::ValidationError,
+            message: "任务正在运行中，请等待当前任务完成后再试".to_string(),
+            should_retry: false,
+            should_ignore: false,
+            status: Some(400),
+            timestamp: chrono::Local::now().to_rfc3339(),
+        });
+    }
+
+    // 如果任务已暂停，先恢复任务
+    if is_paused {
+        crate::task::resume_scanning();
+        Ok(ApiResponse::ok(crate::api::response::TaskControlResponse {
+            success: true,
+            message: "已恢复任务并立即开始运行".to_string(),
+            is_paused: false,
+        }))
+    } else {
+        // 触发立即运行（通过 resume 来设置 just_resumed 标志）
+        crate::task::resume_scanning();
+        Ok(ApiResponse::ok(crate::api::response::TaskControlResponse {
+            success: true,
+            message: "已触发立即运行，任务将在几秒内开始".to_string(),
+            is_paused: false,
+        }))
+    }
 }
 
 /// 获取视频的BVID信息（用于构建B站链接）
