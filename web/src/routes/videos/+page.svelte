@@ -539,6 +539,11 @@
 				class="w-full sm:w-auto"
 				onclick={() => {
 					showFailedOnly = !showFailedOnly;
+					// 如果选中错误视频，自动取消未下载视频筛选（互斥）
+					if (showFailedOnly) {
+						showNotAutoDownloadOnly = false;
+						setShowNotAutoDownloadOnly(false);
+					}
 					setShowFailedOnly(showFailedOnly);
 					resetCurrentPage();
 					goto(`/videos?${ToQuery($appStateStore)}`);
@@ -555,6 +560,11 @@
 				class="w-full sm:w-auto"
 				onclick={() => {
 					showNotAutoDownloadOnly = !showNotAutoDownloadOnly;
+					// 如果选中未下载视频，自动取消错误视频筛选（互斥）
+					if (showNotAutoDownloadOnly) {
+						showFailedOnly = false;
+						setShowFailedOnly(false);
+					}
 					setShowNotAutoDownloadOnly(showNotAutoDownloadOnly);
 					resetCurrentPage();
 					goto(`/videos?${ToQuery($appStateStore)}`);
@@ -672,7 +682,7 @@
 	{/if}
 
 	<!-- 当前筛选状态 -->
-	{#if (selectedSourceType && selectedSourceId && videoSources) || showFailedOnly}
+	{#if (selectedSourceType && selectedSourceId && videoSources) || showFailedOnly || showNotAutoDownloadOnly}
 		<div class="flex flex-wrap items-center gap-2">
 			<span class="text-muted-foreground text-sm">当前筛选:</span>
 
@@ -712,7 +722,25 @@
 				</Badge>
 			{/if}
 
-			{#if (selectedSourceType && selectedSourceId) || showFailedOnly}
+			{#if showNotAutoDownloadOnly}
+				<Badge variant="default" class="flex items-center gap-1">
+					只显示未下载视频
+					<button
+						onclick={() => {
+							showNotAutoDownloadOnly = false;
+							setShowNotAutoDownloadOnly(false);
+							resetCurrentPage();
+							goto(`/videos?${ToQuery($appStateStore)}`);
+						}}
+						class="hover:bg-muted-foreground/20 ml-1 rounded"
+					>
+						<span class="sr-only">清除未下载视频筛选</span>
+						×
+					</button>
+				</Badge>
+			{/if}
+
+			{#if (selectedSourceType && selectedSourceId) || showFailedOnly || showNotAutoDownloadOnly}
 				<Button variant="ghost" size="sm" onclick={clearFilters}>清除所有筛选</Button>
 			{/if}
 		</div>
