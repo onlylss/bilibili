@@ -528,6 +528,7 @@ pub async fn get_videos(
     // 视频分类筛选逻辑
     let show_failed_only = params.show_failed_only.unwrap_or(false);
     let show_not_auto_download_only = params.show_not_auto_download_only.unwrap_or(false);
+    let show_in_progress_only = params.show_in_progress_only.unwrap_or(false);
 
     if show_failed_only {
         // 分类1：错误视频 - 显示下载状态中包含失败的视频
@@ -560,31 +561,53 @@ pub async fn get_videos(
     } else if show_not_auto_download_only {
         // 分类2：未下载视频 - 显示未标记为自动下载的视频
         query = query.filter(video::Column::AutoDownload.eq(false));
-    } else {
-        // 分类3：已完成视频（默认） - 排除错误和未下载的视频
-        // 条件：没有失败任务 AND 已标记为自动下载
+    } else if show_in_progress_only {
+        // 分类3：待处理视频（进行中） - 至少有一个任务已完成，但不是全部完成，且没有失败任务
+        // 条件：NOT(所有都完成) AND 没有失败任务 AND 已标记为自动下载
         use sea_orm::sea_query::Expr;
 
-        let mut no_failed_conditions = Vec::new();
+        // 构建SQL条件：NOT(所有5个任务都=7) AND 所有任务都不在1-6范围内
+        let not_all_completed_sql = format!(
+            "NOT (((download_status >> 0) & 7) = 7 AND ((download_status >> 3) & 7) = 7 AND ((download_status >> 6) & 7) = 7 AND ((download_status >> 9) & 7) = 7 AND ((download_status >> 12) & 7) = 7)"
+        );
 
-        // 检查5个子任务都不在失败状态（不在1-6范围内）
+        // 构建SQL条件：没有失败任务（所有任务都不在1-6范围内）
+        let mut no_failed_conditions = Vec::new();
         for offset in 0..5 {
             let shift = offset * 3;
-            // 每个子任务状态必须是0（未开始）或7（成功）
             no_failed_conditions.push(Expr::cust(format!(
                 "((download_status >> {}) & 7) NOT BETWEEN 1 AND 6",
                 shift
             )));
         }
 
-        // 使用AND连接：所有子任务都不能失败
-        let mut final_condition = no_failed_conditions[0].clone();
-        for condition in no_failed_conditions.into_iter().skip(1) {
+        let mut final_condition = Expr::cust(not_all_completed_sql);
+        for condition in no_failed_conditions {
             final_condition = final_condition.and(condition);
         }
-
-        // 同时要求已标记为自动下载
         final_condition = final_condition.and(video::Column::AutoDownload.eq(true));
+
+        query = query.filter(final_condition);
+    } else {
+        // 分类4：已完成视频（默认） - 所有子任务都已完成(=7)
+        use sea_orm::sea_query::Expr;
+
+        let mut all_completed_conditions = Vec::new();
+
+        // 检查5个子任务都已完成（都=7）
+        for offset in 0..5 {
+            let shift = offset * 3;
+            all_completed_conditions.push(Expr::cust(format!(
+                "((download_status >> {}) & 7) = 7",
+                shift
+            )));
+        }
+
+        // 使用AND连接：所有子任务都必须完成
+        let mut final_condition = all_completed_conditions[0].clone();
+        for condition in all_completed_conditions.into_iter().skip(1) {
+            final_condition = final_condition.and(condition);
+        }
 
         query = query.filter(final_condition);
     }

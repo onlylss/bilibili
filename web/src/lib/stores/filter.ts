@@ -10,6 +10,7 @@ export interface AppState {
 	} | null;
 	showFailedOnly: boolean;
 	showNotAutoDownloadOnly: boolean;
+	showInProgressOnly: boolean;
 	sortBy: SortBy;
 	sortOrder: SortOrder;
 }
@@ -20,12 +21,13 @@ export const appStateStore = writable<AppState>({
 	videoSource: null,
 	showFailedOnly: false,
 	showNotAutoDownloadOnly: false,
+	showInProgressOnly: false,
 	sortBy: 'id',
 	sortOrder: 'desc'
 });
 
 export const ToQuery = (state: AppState): string => {
-	const { query, videoSource, showFailedOnly, showNotAutoDownloadOnly, sortBy, sortOrder } = state;
+	const { query, videoSource, showFailedOnly, showNotAutoDownloadOnly, showInProgressOnly, sortBy, sortOrder } = state;
 	const params = new URLSearchParams();
 	if (state.currentPage > 0) {
 		params.set('page', String(state.currentPage));
@@ -41,6 +43,9 @@ export const ToQuery = (state: AppState): string => {
 	}
 	if (showNotAutoDownloadOnly) {
 		params.set('show_not_auto_download_only', 'true');
+	}
+	if (showInProgressOnly) {
+		params.set('show_in_progress_only', 'true');
 	}
 	// 只有非默认排序时才添加到URL
 	if (sortBy !== 'id' || sortOrder !== 'desc') {
@@ -100,12 +105,20 @@ export const setShowNotAutoDownloadOnly = (showNotAutoDownloadOnly: boolean) => 
 	}));
 };
 
+export const setShowInProgressOnly = (showInProgressOnly: boolean) => {
+	appStateStore.update((state) => ({
+		...state,
+		showInProgressOnly
+	}));
+};
+
 export const setAll = (
 	query: string,
 	currentPage: number,
 	videoSource: { type: string; id: string } | null,
 	showFailedOnly: boolean = false,
 	showNotAutoDownloadOnly: boolean = false,
+	showInProgressOnly: boolean = false,
 	sortBy: SortBy = 'id',
 	sortOrder: SortOrder = 'desc'
 ) => {
@@ -115,6 +128,7 @@ export const setAll = (
 		videoSource,
 		showFailedOnly,
 		showNotAutoDownloadOnly,
+		showInProgressOnly,
 		sortBy,
 		sortOrder
 	});
@@ -126,6 +140,8 @@ export const clearAll = () => {
 		currentPage: 0,
 		videoSource: null,
 		showFailedOnly: false,
+		showNotAutoDownloadOnly: false,
+		showInProgressOnly: false,
 		sortBy: 'id',
 		sortOrder: 'desc'
 	});

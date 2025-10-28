@@ -22,6 +22,7 @@ export interface VideosRequest {
 	page_size?: number;
 	show_failed_only?: boolean;
 	show_not_auto_download_only?: boolean; // 仅显示未标记为自动下载的视频
+	show_in_progress_only?: boolean; // 仅显示下载进行中的视频
 	sort_by?: SortBy;
 	sort_order?: SortOrder;
 }

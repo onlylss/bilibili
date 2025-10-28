@@ -14,6 +14,7 @@ pub struct VideosRequest {
     pub page_size: Option<u64>,
     pub show_failed_only: Option<bool>,
     pub show_not_auto_download_only: Option<bool>, // 仅显示未标记为自动下载的视频
+    pub show_in_progress_only: Option<bool>, // 仅显示下载进行中的视频
     pub force: Option<bool>,
     pub sort_by: Option<String>,    // "id", "name", "upper_name", "created_at", "updated_at"
     pub sort_order: Option<String>, // "asc", "desc"

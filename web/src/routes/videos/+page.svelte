@@ -64,13 +64,14 @@
 	let currentSortBy: SortBy = 'id';
 	let currentSortOrder: SortOrder = 'desc';
 
-	// 视频分类状态:completed(已完成,默认)、failed(错误)、not_downloaded(未下载)
-	type ViewMode = 'completed' | 'failed' | 'not_downloaded';
+	// 视频分类状态:completed(已完成,默认)、in_progress(待处理)、failed(错误)、not_downloaded(未下载)
+	type ViewMode = 'completed' | 'in_progress' | 'failed' | 'not_downloaded';
 	let viewMode: ViewMode = 'completed';
 
 	// 内部映射到API参数
 	let showFailedOnly = false;
 	let showNotAutoDownloadOnly = false;
+	let showInProgressOnly = false;
 
 	// 批量选择状态
 	let selectionMode = false;
@@ -95,6 +96,7 @@
 			pageNum: parseInt(searchParams.get('page') || '0'),
 			showFailedOnly: searchParams.get('show_failed_only') === 'true',
 			showNotAutoDownloadOnly: searchParams.get('show_not_auto_download_only') === 'true',
+			showInProgressOnly: searchParams.get('show_in_progress_only') === 'true',
 			sortBy: (searchParams.get('sort_by') as SortBy) || 'id',
 			sortOrder: (searchParams.get('sort_order') as SortOrder) || 'desc'
 		};
@@ -106,6 +108,7 @@
 		filter?: { type: string; id: string } | null,
 		showFailedOnly: boolean = false,
 		showNotAutoDownloadOnly: boolean = false,
+		showInProgressOnly: boolean = false,
 		sortBy: SortBy = 'id',
 		sortOrder: SortOrder = 'desc'
 	) {
@@ -128,6 +131,9 @@
 			}
 			if (showNotAutoDownloadOnly) {
 				params.show_not_auto_download_only = true;
+			}
+			if (showInProgressOnly) {
+				params.show_in_progress_only = true;
 			}
 
 			const result = await api.getVideos(params);
@@ -163,10 +169,11 @@
 			pageNum,
 			showFailedOnly: showFailedOnlyParam,
 			showNotAutoDownloadOnly: showNotAutoDownloadOnlyParam,
+			showInProgressOnly: showInProgressOnlyParam,
 			sortBy,
 			sortOrder
 		} = getApiParams(searchParams);
-		setAll(query, pageNum, videoSource, showFailedOnlyParam, showNotAutoDownloadOnlyParam, sortBy, sortOrder);
+		setAll(query, pageNum, videoSource, showFailedOnlyParam, showNotAutoDownloadOnlyParam, showInProgressOnlyParam, sortBy, sortOrder);
 
 		// 同步筛选状态
 		if (videoSource) {
@@ -182,16 +189,19 @@
 			viewMode = 'failed';
 		} else if (showNotAutoDownloadOnlyParam) {
 			viewMode = 'not_downloaded';
+		} else if (showInProgressOnlyParam) {
+			viewMode = 'in_progress';
 		} else {
 			viewMode = 'completed';
 		}
 
 		showFailedOnly = showFailedOnlyParam;
 		showNotAutoDownloadOnly = showNotAutoDownloadOnlyParam;
+		showInProgressOnly = showInProgressOnlyParam;
 		currentSortBy = sortBy;
 		currentSortOrder = sortOrder;
 
-		loadVideos(query, pageNum, videoSource, showFailedOnlyParam, showNotAutoDownloadOnlyParam, sortBy, sortOrder);
+		loadVideos(query, pageNum, videoSource, showFailedOnlyParam, showNotAutoDownloadOnlyParam, showInProgressOnlyParam, sortBy, sortOrder);
 	}
 
 	async function handleResetVideo(video: VideoInfo, forceReset: boolean) {
@@ -202,9 +212,9 @@
 				toast.success('重置成功', {
 					description: `视频「${video.name}」已重置`
 				});
-				const { query, currentPage, videoSource, showFailedOnly, showNotAutoDownloadOnly, sortBy, sortOrder } =
+				const { query, currentPage, videoSource, showFailedOnly, showNotAutoDownloadOnly, showInProgressOnly, sortBy, sortOrder } =
 					$appStateStore;
-				await loadVideos(query, currentPage, videoSource, showFailedOnly, showNotAutoDownloadOnly, sortBy, sortOrder);
+				await loadVideos(query, currentPage, videoSource, showFailedOnly, showNotAutoDownloadOnly, showInProgressOnly, sortBy, sortOrder);
 			} else {
 				toast.info('重置无效', {
 					description: `视频「${video.name}」没有失败的状态，无需重置`
@@ -286,6 +296,7 @@
 						videoSource: currentVideoSource,
 						showFailedOnly,
 						showNotAutoDownloadOnly,
+						showInProgressOnly,
 						sortBy,
 						sortOrder
 					} = $appStateStore;
@@ -295,6 +306,7 @@
 						currentVideoSource,
 						showFailedOnly,
 						showNotAutoDownloadOnly,
+						showInProgressOnly,
 						sortBy,
 						sortOrder
 					);
@@ -350,9 +362,11 @@
 		viewMode = mode;
 		const newShowFailedOnly = mode === 'failed';
 		const newShowNotAutoDownloadOnly = mode === 'not_downloaded';
+		const newShowInProgressOnly = mode === 'in_progress';
 
 		showFailedOnly = newShowFailedOnly;
 		showNotAutoDownloadOnly = newShowNotAutoDownloadOnly;
+		showInProgressOnly = newShowInProgressOnly;
 
 		const videoSource = selectedSourceType && selectedSourceId
 			? { type: selectedSourceType, id: selectedSourceId }
@@ -364,6 +378,7 @@
 			videoSource,
 			newShowFailedOnly,
 			newShowNotAutoDownloadOnly,
+			newShowInProgressOnly,
 			currentSortBy,
 			currentSortOrder
 		);
@@ -376,7 +391,7 @@
 		// 保持当前的viewMode不变,不清除分类状态
 		currentSortBy = 'id';
 		currentSortOrder = 'desc';
-		setAll('', 0, null, showFailedOnly, showNotAutoDownloadOnly, 'id', 'desc');
+		setAll('', 0, null, showFailedOnly, showNotAutoDownloadOnly, showInProgressOnly, 'id', 'desc');
 		goto(`/videos?${ToQuery($appStateStore)}`);
 	}
 
@@ -469,9 +484,9 @@
 				});
 
 				// 重新加载视频列表
-				const { query, currentPage, videoSource, showFailedOnly, showNotAutoDownloadOnly, sortBy, sortOrder } =
+				const { query, currentPage, videoSource, showFailedOnly, showNotAutoDownloadOnly, showInProgressOnly, sortBy, sortOrder } =
 					$appStateStore;
-				await loadVideos(query, currentPage, videoSource, showFailedOnly, showNotAutoDownloadOnly, sortBy, sortOrder);
+				await loadVideos(query, currentPage, videoSource, showFailedOnly, showNotAutoDownloadOnly, showInProgressOnly, sortBy, sortOrder);
 
 				// 清空选择
 				clearSelection();
@@ -501,9 +516,9 @@
 	let lastPageSize = pageSize;
 	$: if (pageSize !== lastPageSize && videosData) {
 		lastPageSize = pageSize;
-		const { query, currentPage, videoSource, showFailedOnly, showNotAutoDownloadOnly, sortBy, sortOrder } =
+		const { query, currentPage, videoSource, showFailedOnly, showNotAutoDownloadOnly, showInProgressOnly, sortBy, sortOrder } =
 			$appStateStore;
-		loadVideos(query, currentPage, videoSource, showFailedOnly, showNotAutoDownloadOnly, sortBy, sortOrder);
+		loadVideos(query, currentPage, videoSource, showFailedOnly, showNotAutoDownloadOnly, showInProgressOnly, sortBy, sortOrder);
 	}
 
 	$: totalPages = videosData ? Math.ceil(videosData.total_count / pageSize) : 0;
@@ -566,6 +581,14 @@
 				onclick={() => handleViewModeChange('completed')}
 			>
 				已完成
+			</button>
+			<button
+				class="relative px-4 py-2 text-sm font-medium transition-colors {viewMode === 'in_progress'
+					? 'text-primary border-b-2 border-primary'
+					: 'text-muted-foreground hover:text-foreground'}"
+				onclick={() => handleViewModeChange('in_progress')}
+			>
+				待处理
 			</button>
 			<button
 				class="relative px-4 py-2 text-sm font-medium transition-colors {viewMode === 'not_downloaded'
