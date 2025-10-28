@@ -47,10 +47,17 @@
 		}
 	}
 
-	function getOverallStatus(downloadStatus: number[], autoDownload: boolean): {
+	function getOverallStatus(downloadStatus: number[], autoDownload: boolean, rawDownloadStatus: number): {
 		text: string;
 		color: 'default' | 'secondary' | 'destructive' | 'outline';
 	} {
+		// 检查是否为充电专享视频（第30位为1）
+		const isChargingVideo = (rawDownloadStatus & (1 << 30)) !== 0;
+
+		if (isChargingVideo) {
+			return { text: '充电视频', color: 'destructive' };
+		}
+
 		const completed = downloadStatus.filter((status) => status === 7).length;
 		const total = downloadStatus.length;
 		const failed = downloadStatus.filter((status) => status !== 7 && status !== 0).length;
@@ -103,7 +110,7 @@
 	// 只计算实际执行任务的进度
 	$: activeTasks = getActiveTasksWithStatus(video.download_status);
 	$: activeStatuses = activeTasks.map(t => t.status);
-	$: overallStatus = getOverallStatus(activeStatuses, video.auto_download);
+	$: overallStatus = getOverallStatus(activeStatuses, video.auto_download, video.raw_download_status);
 	$: completed = activeStatuses.filter((status) => status === 7).length;
 	$: total = activeStatuses.length;
 

@@ -28,7 +28,6 @@ use crate::bilibili::{
 };
 use crate::config::ARGS;
 use crate::error::{DownloadAbortError, ExecutionStatus, ProcessPageError};
-use crate::task::{DeleteVideoTask, VIDEO_DELETE_TASK_QUEUE};
 use crate::unified_downloader::UnifiedDownloader;
 use crate::utils::format_arg::{page_format_args, video_format_args};
 use crate::utils::model::{
@@ -800,20 +799,21 @@ pub async fn fetch_video_details(
 
                             // 革命性充电视频检测：基于API返回的upower字段进行精确判断
                             if let (Some(true), Some(false)) = (is_upower_exclusive, is_upower_play) {
-                                info!("「{}」检测到充电专享视频（未充电），将自动删除", &video_model.name);
-                                // 创建自动删除任务
-                                let delete_task = DeleteVideoTask {
-                                    video_id: video_model.id,
-                                    task_id: format!("auto_delete_upower_{}", video_model.id),
-                                };
+                                info!("「{}」检测到充电专享视频（未充电），标记为充电视频", &video_model.name);
 
-                                if let Err(delete_err) =
-                                    VIDEO_DELETE_TASK_QUEUE.enqueue_task(delete_task, connection).await
-                                {
-                                    error!("创建充电视频删除任务失败「{}」: {:#}", &video_model.name, delete_err);
-                                } else {
-                                    debug!("充电视频删除任务已加入队列「{}」", &video_model.name);
-                                }
+                                // 标记为充电视频：设置特殊的download_status
+                                use bili_sync_entity::video;
+                                use sea_orm::*;
+                                video::Entity::update(video::ActiveModel {
+                                    id: Unchanged(video_model.id),
+                                    download_status: Set(crate::utils::status::STATUS_CHARGING_VIDEO),
+                                    auto_download: Set(false),  // 设为手动下载
+                                    ..Default::default()
+                                })
+                                .exec(connection)
+                                .await?;
+
+                                info!("充电视频已标记「{}」", &video_model.name);
 
                                 // 跳过后续处理，返回成功完成这个视频的处理
                                 return Ok(());

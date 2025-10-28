@@ -3,6 +3,7 @@ use crate::error::ExecutionStatus;
 pub(super) static STATUS_MAX_RETRY: u32 = 0b100;
 pub static STATUS_OK: u32 = 0b111;
 pub static STATUS_COMPLETED: u32 = 1 << 31;
+pub static STATUS_CHARGING_VIDEO: u32 = 1 << 30;
 
 /// 用来表示下载的状态，不想写太多列了，所以仅使用一个 u32 表示。
 /// 从低位开始，固定每三位表示一种子任务的状态。

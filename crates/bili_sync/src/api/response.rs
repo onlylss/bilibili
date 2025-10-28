@@ -222,6 +222,7 @@ pub struct VideoInfo {
     pub path: String,
     pub category: i32,
     pub download_status: [u32; 5],
+    pub raw_download_status: u32, // 原始download_status值，用于检测充电视频等特殊状态
     pub cover: String,
     pub auto_download: bool, // 是否自动下载
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -231,7 +232,7 @@ pub struct VideoInfo {
 
 impl From<(i32, String, String, String, i32, u32, String, bool, String)> for VideoInfo {
     fn from(
-        (id, name, upper_name, path, category, download_status, cover, auto_download, pubtime): (i32, String, String, String, i32, u32, String, bool, String),
+        (id, name, upper_name, path, category, raw_download_status, cover, auto_download, pubtime): (i32, String, String, String, i32, u32, String, bool, String),
     ) -> Self {
         Self {
             id,
@@ -239,7 +240,8 @@ impl From<(i32, String, String, String, i32, u32, String, bool, String)> for Vid
             upper_name,
             path,
             category,
-            download_status: VideoStatus::from(download_status).into(),
+            download_status: VideoStatus::from(raw_download_status).into(),
+            raw_download_status,
             cover,
             auto_download,
             bangumi_title: None, // 默认为None，将在API层根据视频类型填充

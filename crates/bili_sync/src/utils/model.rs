@@ -264,7 +264,43 @@ pub async fn create_videos(
                 .await?;
 
             if let Some(existing) = existing_video {
-                if existing.deleted == 1 {
+                // 检查是否为充电专享视频（download_status的第30位为1）
+                let is_charging_video = (existing.download_status & (1 << 30)) != 0;
+
+                if is_charging_video {
+                    // 存在充电专享视频标记，说明之前是充电视频，现在在列表中出现说明可能已经可以观看了
+                    // 恢复它并重置下载状态以强制重新下载
+                    let update_model = video::ActiveModel {
+                        id: Unchanged(existing.id),
+                        download_status: Set(0),   // 重置下载状态为未开始，清除充电视频标记
+                        path: Set("".to_string()), // 清空原有路径，因为文件可能已经不存在
+                        single_page: Set(None),    // 设为NULL，让filter_unfilled_videos识别并重新获取完整信息
+                        // 更新其他可能变化的字段
+                        name: model.name.clone(),
+                        intro: model.intro.clone(),
+                        cover: model.cover.clone(),
+                        tags: model.tags.clone(),
+                        ..Default::default()
+                    };
+                    update_model.save(connection).await?;
+                    // 恢复后确保参与自动下载流程
+                    video::Entity::update(video::ActiveModel {
+                        id: Unchanged(existing.id),
+                        auto_download: Set(true),
+                        ..Default::default()
+                    })
+                    .exec(connection)
+                    .await?;
+
+                    // 删除该视频的所有旧page记录（如果存在的话）
+                    // 因为视频信息可能已经变化，旧的page记录可能不准确
+                    page::Entity::delete_many()
+                        .filter(page::Column::VideoId.eq(existing.id))
+                        .exec(connection)
+                        .await?;
+
+                    info!("恢复充电专享视频（现在可以观看），将重新获取详细信息: {}", existing.name);
+                } else if existing.deleted == 1 {
                     // 存在已删除的视频，恢复它并重置下载状态以强制重新下载
                     let update_model = video::ActiveModel {
                         id: Unchanged(existing.id),

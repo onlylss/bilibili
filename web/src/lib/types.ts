@@ -62,6 +62,7 @@ export interface VideoInfo {
 	path: string;
 	category: number;
 	download_status: [number, number, number, number, number];
+	raw_download_status: number; // 原始download_status值，用于检测充电视频等特殊状态
 	cover: string;
 	bangumi_title?: string; // 番剧真实标题，用于番剧类型视频的显示
 	auto_download: boolean; // 是否自动下载

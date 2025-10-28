@@ -525,11 +525,11 @@ pub async fn get_videos(
     let show_in_progress_only = params.show_in_progress_only.unwrap_or(false);
 
     if show_failed_only {
-        // 分类1：错误视频 - 显示下载状态中包含失败的视频
+        // 分类1：错误视频 - 显示下载状态中包含失败的视频或充电专享视频
         // download_status是u32类型，使用位运算编码5个子任务状态
         // 每3位表示一个子任务：(download_status >> (offset * 3)) & 7
         // 状态值：0=未开始，1-6=失败次数，7=成功
-        // 筛选任一子任务状态在1-6范围内的视频
+        // 充电视频：第30位为1 (1 << 30)
         use sea_orm::sea_query::Expr;
 
         let mut conditions = Vec::new();
@@ -545,9 +545,15 @@ pub async fn get_videos(
             )));
         }
 
-        // 使用OR连接：任一子任务失败即匹配
-        let mut final_condition = conditions[0].clone();
-        for condition in conditions.into_iter().skip(1) {
+        // 添加充电视频条件：检查第30位是否为1
+        let charging_video_condition = Expr::cust(format!(
+            "(download_status & {}) != 0",
+            1u32 << 30
+        ));
+
+        // 使用OR连接：任一子任务失败或充电视频即匹配
+        let mut final_condition = charging_video_condition;
+        for condition in conditions.into_iter() {
             final_condition = final_condition.or(condition);
         }
 
