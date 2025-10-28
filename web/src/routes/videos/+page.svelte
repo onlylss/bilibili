@@ -568,20 +568,20 @@
 				已完成
 			</button>
 			<button
-				class="relative px-4 py-2 text-sm font-medium transition-colors {viewMode === 'failed'
-					? 'text-destructive border-b-2 border-destructive'
-					: 'text-muted-foreground hover:text-foreground'}"
-				onclick={() => handleViewModeChange('failed')}
-			>
-				错误
-			</button>
-			<button
 				class="relative px-4 py-2 text-sm font-medium transition-colors {viewMode === 'not_downloaded'
 					? 'text-primary border-b-2 border-primary'
 					: 'text-muted-foreground hover:text-foreground'}"
 				onclick={() => handleViewModeChange('not_downloaded')}
 			>
 				未下载
+			</button>
+			<button
+				class="relative px-4 py-2 text-sm font-medium transition-colors {viewMode === 'failed'
+					? 'text-destructive border-b-2 border-destructive'
+					: 'text-muted-foreground hover:text-foreground'}"
+				onclick={() => handleViewModeChange('failed')}
+			>
+				错误
 			</button>
 		</div>
 
