@@ -67,20 +67,6 @@ jobs:
           echo "## 构建完成 ✅" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**镜像名称**: \`${IMAGE_NAME}\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**使用方法**:" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
-          echo "# 1. 下载并导入镜像" >> $GITHUB_STEP_SUMMARY
-          echo "gunzip -c bilibili-ly-docker-amd64.tar.gz | docker load" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "# 2. 运行容器" >> $GITHUB_STEP_SUMMARY
-          echo "docker run -d --name bili-sync --restart unless-stopped \\" >> $GITHUB_STEP_SUMMARY
-          echo "  -p 12345:12345 \\" >> $GITHUB_STEP_SUMMARY
-          echo "  -v /临时存储/docker/bilibili:/app/.config/bili-sync \\" >> $GITHUB_STEP_SUMMARY
-          echo "  -v /我的文件/LY/资源采集/哔哩哔哩:/bl \\" >> $GITHUB_STEP_SUMMARY
-          echo "  -e TZ=Asia/Shanghai \\" >> $GITHUB_STEP_SUMMARY
-          echo "  ${IMAGE_NAME}" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
 
       - name: 上传 Docker 镜像
         uses: actions/upload-artifact@v4
