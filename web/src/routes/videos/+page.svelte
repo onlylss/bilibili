@@ -708,14 +708,14 @@
 
 	<!-- 当前筛选状态 -->
 	{#if selectedSourceType && selectedSourceId && videoSources}
+		{@const sourceConfig = Object.values(VIDEO_SOURCES).find(
+			(config) => config.type === selectedSourceType
+		)}
+		{@const sources = videoSources[selectedSourceType]}
+		{@const currentSource = sources?.find((s) => s.id.toString() === selectedSourceId)}
 		<div class="flex flex-wrap items-center gap-2">
 			<span class="text-muted-foreground text-sm">当前筛选:</span>
 
-			{@const sourceConfig = Object.values(VIDEO_SOURCES).find(
-				(config) => config.type === selectedSourceType
-			)}
-			{@const sources = videoSources[selectedSourceType]}
-			{@const currentSource = sources?.find((s) => s.id.toString() === selectedSourceId)}
 			{#if sourceConfig && currentSource}
 				<Badge variant="secondary" class="flex items-center gap-1">
 					<sourceConfig.icon class="h-3 w-3" />
