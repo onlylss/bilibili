@@ -269,6 +269,40 @@
 		// 使用后端代理端点
 		return `/api/proxy/image?url=${encodeURIComponent(originalUrl)}`;
 	}
+
+	// 格式化发布日期为相对时间或具体日期
+	function formatPubtime(pubtime: string): string {
+		try {
+			const date = new Date(pubtime.replace(' ', 'T'));
+			const now = new Date();
+			const diffMs = now.getTime() - date.getTime();
+			const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+			// 只有今天发布的才显示相对时间
+			if (diffDays === 0) {
+				const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+				if (diffHours === 0) {
+					const diffMinutes = Math.floor(diffMs / (1000 * 60));
+					return diffMinutes <= 1 ? '刚刚' : `${diffMinutes}分钟前`;
+				}
+				return `${diffHours}小时前`;
+			}
+
+			// 不是今天发布的，显示具体日期
+			const year = date.getFullYear();
+			const month = String(date.getMonth() + 1).padStart(2, '0');
+			const day = String(date.getDate()).padStart(2, '0');
+
+			// 判断是否是今年
+			if (year === now.getFullYear()) {
+				return `${month}-${day}`;
+			} else {
+				return `${year}-${month}-${day}`;
+			}
+		} catch (e) {
+			return pubtime;
+		}
+	}
 </script>
 
 <Card class="{cardClasses} relative overflow-hidden p-0 hover:shadow-lg transition-shadow cursor-pointer" onclick={handleViewDetail}>
@@ -340,9 +374,11 @@
 
 		<!-- UP主信息 -->
 		<div class="flex items-center justify-between text-[11px] text-muted-foreground">
-			<div class="flex items-center gap-1 min-w-0">
+			<div class="flex items-center gap-1 min-w-0 flex-1">
 				<UserIcon class="h-3 w-3 shrink-0 opacity-70" />
 				<span class="truncate">{displaySubtitle || video.upper_name}</span>
+				<span class="shrink-0 opacity-60 mx-1">·</span>
+				<span class="shrink-0 opacity-70">{formatPubtime(video.pubtime)}</span>
 			</div>
 			<!-- 操作按钮组 - 手机端始终显示，桌面端hover显示 -->
 			{#if !selectionMode}

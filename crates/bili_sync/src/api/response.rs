@@ -226,11 +226,12 @@ pub struct VideoInfo {
     pub auto_download: bool, // 是否自动下载
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bangumi_title: Option<String>, // 番剧真实标题，用于番剧类型视频的显示
+    pub pubtime: String, // 视频发布时间
 }
 
-impl From<(i32, String, String, String, i32, u32, String, bool)> for VideoInfo {
+impl From<(i32, String, String, String, i32, u32, String, bool, String)> for VideoInfo {
     fn from(
-        (id, name, upper_name, path, category, download_status, cover, auto_download): (i32, String, String, String, i32, u32, String, bool),
+        (id, name, upper_name, path, category, download_status, cover, auto_download, pubtime): (i32, String, String, String, i32, u32, String, bool, String),
     ) -> Self {
         Self {
             id,
@@ -242,6 +243,7 @@ impl From<(i32, String, String, String, i32, u32, String, bool)> for VideoInfo {
             cover,
             auto_download,
             bangumi_title: None, // 默认为None，将在API层根据视频类型填充
+            pubtime,
         }
     }
 }

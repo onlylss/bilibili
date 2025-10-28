@@ -65,6 +65,7 @@ export interface VideoInfo {
 	cover: string;
 	bangumi_title?: string; // 番剧真实标题，用于番剧类型视频的显示
 	auto_download: boolean; // 是否自动下载
+	pubtime: string; // 视频发布时间
 }
 
 // 视频列表响应类型
