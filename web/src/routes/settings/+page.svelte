@@ -171,7 +171,6 @@
 
 	// 其他设置
 	let cdnSorting = false;
-	let scanDeletedVideos = false;
 	let upperPath = ''; // UP主头像保存路径
 
 	// B站凭证设置
@@ -484,7 +483,6 @@
 
 			// 其他设置
 			cdnSorting = config.cdn_sorting || false;
-			scanDeletedVideos = config.scan_deleted_videos || false;
 			upperPath = config.upper_path || '';
 
 			// B站凭证设置
@@ -726,7 +724,6 @@
 				rate_duration: rateDuration,
 				// 其他设置
 				cdn_sorting: cdnSorting,
-				scan_deleted_videos: scanDeletedVideos,
 				upper_path: upperPath,
 				// UP主投稿风控配置
 				large_submission_threshold: largeSubmissionThreshold,
@@ -3175,17 +3172,6 @@
 								<p class="text-muted-foreground ml-2 text-sm">优化下载节点选择</p>
 							</div>
 
-							<div class="flex items-center space-x-2">
-								<input
-									type="checkbox"
-									id="scan-deleted-videos"
-									bind:checked={scanDeletedVideos}
-									class="text-primary focus:ring-primary h-4 w-4 rounded border-gray-300"
-								/>
-								<Label for="scan-deleted-videos" class="text-sm">显示已删除视频</Label>
-								<p class="text-muted-foreground ml-2 text-sm">在视频列表中显示已删除的视频</p>
-							</div>
-
 							<div class="space-y-2">
 								<Label for="upper-path">UP主头像保存路径</Label>
 								<Input
@@ -3208,10 +3194,6 @@
 										>已自动启用，使用SQLite内存映射技术优化数据库性能，无需手动配置
 									</p>
 									<p><strong>CDN排序：</strong>启用后优先使用质量更高的CDN，可能提升下载速度</p>
-									<p>
-										<strong>显示已删除视频：</strong
-										>控制前端列表是否显示已删除的视频（注：与视频源的"扫描已删除视频"功能不同）
-									</p>
 									<p>
 										<strong>UP主头像路径：</strong
 										>UP主头像和person.nfo文件的保存目录，用于媒体库显示
