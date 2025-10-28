@@ -61,10 +61,16 @@
 	let showFilters = false;
 	let selectedSourceType = '';
 	let selectedSourceId = '';
-	let showFailedOnly = false;
-	let showNotAutoDownloadOnly = false;
 	let currentSortBy: SortBy = 'id';
 	let currentSortOrder: SortOrder = 'desc';
+
+	// 视频分类状态:completed(已完成,默认)、failed(错误)、not_downloaded(未下载)
+	type ViewMode = 'completed' | 'failed' | 'not_downloaded';
+	let viewMode: ViewMode = 'completed';
+
+	// 内部映射到API参数
+	let showFailedOnly = false;
+	let showNotAutoDownloadOnly = false;
 
 	// 批量选择状态
 	let selectionMode = false;
@@ -170,6 +176,16 @@
 			selectedSourceType = '';
 			selectedSourceId = '';
 		}
+
+		// 同步视频分类状态
+		if (showFailedOnlyParam) {
+			viewMode = 'failed';
+		} else if (showNotAutoDownloadOnlyParam) {
+			viewMode = 'not_downloaded';
+		} else {
+			viewMode = 'completed';
+		}
+
 		showFailedOnly = showFailedOnlyParam;
 		showNotAutoDownloadOnly = showNotAutoDownloadOnlyParam;
 		currentSortBy = sortBy;
@@ -330,15 +346,38 @@
 		goto(`/videos?${ToQuery($appStateStore)}`);
 	}
 
+	function handleViewModeChange(mode: ViewMode) {
+		viewMode = mode;
+		const newShowFailedOnly = mode === 'failed';
+		const newShowNotAutoDownloadOnly = mode === 'not_downloaded';
+
+		showFailedOnly = newShowFailedOnly;
+		showNotAutoDownloadOnly = newShowNotAutoDownloadOnly;
+
+		const videoSource = selectedSourceType && selectedSourceId
+			? { type: selectedSourceType, id: selectedSourceId }
+			: null;
+
+		setAll(
+			$appStateStore.query,
+			0, // 重置到第一页
+			videoSource,
+			newShowFailedOnly,
+			newShowNotAutoDownloadOnly,
+			currentSortBy,
+			currentSortOrder
+		);
+		goto(`/videos?${ToQuery($appStateStore)}`);
+	}
+
 	function clearFilters() {
 		selectedSourceType = '';
 		selectedSourceId = '';
-		showFailedOnly = false;
-		showNotAutoDownloadOnly = false;
+		// 保持当前的viewMode不变,不清除分类状态
 		currentSortBy = 'id';
 		currentSortOrder = 'desc';
-		setAll('', 0, null, false, false, 'id', 'desc');
-		goto('/videos');
+		setAll('', 0, null, showFailedOnly, showNotAutoDownloadOnly, 'id', 'desc');
+		goto(`/videos?${ToQuery($appStateStore)}`);
 	}
 
 	function handleSortChange(sortBy: SortBy, sortOrder: SortOrder) {
@@ -518,6 +557,34 @@
 			</div>
 		</div>
 
+		<!-- 视频分类标签 -->
+		<div class="flex items-center gap-2 border-b">
+			<button
+				class="relative px-4 py-2 text-sm font-medium transition-colors {viewMode === 'completed'
+					? 'text-primary border-b-2 border-primary'
+					: 'text-muted-foreground hover:text-foreground'}"
+				onclick={() => handleViewModeChange('completed')}
+			>
+				已完成
+			</button>
+			<button
+				class="relative px-4 py-2 text-sm font-medium transition-colors {viewMode === 'failed'
+					? 'text-destructive border-b-2 border-destructive'
+					: 'text-muted-foreground hover:text-foreground'}"
+				onclick={() => handleViewModeChange('failed')}
+			>
+				错误
+			</button>
+			<button
+				class="relative px-4 py-2 text-sm font-medium transition-colors {viewMode === 'not_downloaded'
+					? 'text-primary border-b-2 border-primary'
+					: 'text-muted-foreground hover:text-foreground'}"
+				onclick={() => handleViewModeChange('not_downloaded')}
+			>
+				未下载
+			</button>
+		</div>
+
 		<!-- 操作按钮栏 - 移动端使用网格布局 -->
 		<div class="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:justify-end sm:gap-2">
 			<!-- 筛选按钮 -->
@@ -530,48 +597,6 @@
 				<FilterIcon class="mr-2 h-4 w-4" />
 				<span class="xs:inline hidden">筛选</span>
 				<span class="xs:hidden">筛选</span>
-			</Button>
-
-			<!-- 显示错误视频按钮 -->
-			<Button
-				variant={showFailedOnly ? 'destructive' : 'outline'}
-				size="sm"
-				class="w-full sm:w-auto"
-				onclick={() => {
-					showFailedOnly = !showFailedOnly;
-					// 如果选中错误视频，自动取消未下载视频筛选（互斥）
-					if (showFailedOnly) {
-						showNotAutoDownloadOnly = false;
-						setShowNotAutoDownloadOnly(false);
-					}
-					setShowFailedOnly(showFailedOnly);
-					resetCurrentPage();
-					goto(`/videos?${ToQuery($appStateStore)}`);
-				}}
-			>
-				<span class="hidden sm:inline">只显示错误视频</span>
-				<span class="sm:hidden">错误视频</span>
-			</Button>
-
-			<!-- 只显示未下载视频按钮 -->
-			<Button
-				variant={showNotAutoDownloadOnly ? 'default' : 'outline'}
-				size="sm"
-				class="w-full sm:w-auto"
-				onclick={() => {
-					showNotAutoDownloadOnly = !showNotAutoDownloadOnly;
-					// 如果选中未下载视频，自动取消错误视频筛选（互斥）
-					if (showNotAutoDownloadOnly) {
-						showFailedOnly = false;
-						setShowFailedOnly(false);
-					}
-					setShowNotAutoDownloadOnly(showNotAutoDownloadOnly);
-					resetCurrentPage();
-					goto(`/videos?${ToQuery($appStateStore)}`);
-				}}
-			>
-				<span class="hidden sm:inline">只显示未下载视频</span>
-				<span class="sm:hidden">未下载</span>
 			</Button>
 
 			<!-- 批量重置按钮 -->
@@ -682,67 +707,27 @@
 	{/if}
 
 	<!-- 当前筛选状态 -->
-	{#if (selectedSourceType && selectedSourceId && videoSources) || showFailedOnly || showNotAutoDownloadOnly}
+	{#if selectedSourceType && selectedSourceId && videoSources}
 		<div class="flex flex-wrap items-center gap-2">
 			<span class="text-muted-foreground text-sm">当前筛选:</span>
 
-			{#if selectedSourceType && selectedSourceId && videoSources}
-				{@const sourceConfig = Object.values(VIDEO_SOURCES).find(
-					(config) => config.type === selectedSourceType
-				)}
-				{@const sources = videoSources[selectedSourceType]}
-				{@const currentSource = sources?.find((s) => s.id.toString() === selectedSourceId)}
-				{#if sourceConfig && currentSource}
-					<Badge variant="secondary" class="flex items-center gap-1">
-						<sourceConfig.icon class="h-3 w-3" />
-						{currentSource.name}
-						<button onclick={clearFilters} class="hover:bg-muted-foreground/20 ml-1 rounded">
-							<span class="sr-only">清除筛选</span>
-							×
-						</button>
-					</Badge>
-				{/if}
-			{/if}
-
-			{#if showFailedOnly}
-				<Badge variant="destructive" class="flex items-center gap-1">
-					只显示错误视频
-					<button
-						onclick={() => {
-							showFailedOnly = false;
-							setShowFailedOnly(false);
-							resetCurrentPage();
-							goto(`/videos?${ToQuery($appStateStore)}`);
-						}}
-						class="hover:bg-muted-foreground/20 ml-1 rounded"
-					>
-						<span class="sr-only">清除错误视频筛选</span>
+			{@const sourceConfig = Object.values(VIDEO_SOURCES).find(
+				(config) => config.type === selectedSourceType
+			)}
+			{@const sources = videoSources[selectedSourceType]}
+			{@const currentSource = sources?.find((s) => s.id.toString() === selectedSourceId)}
+			{#if sourceConfig && currentSource}
+				<Badge variant="secondary" class="flex items-center gap-1">
+					<sourceConfig.icon class="h-3 w-3" />
+					{currentSource.name}
+					<button onclick={clearFilters} class="hover:bg-muted-foreground/20 ml-1 rounded">
+						<span class="sr-only">清除筛选</span>
 						×
 					</button>
 				</Badge>
 			{/if}
 
-			{#if showNotAutoDownloadOnly}
-				<Badge variant="default" class="flex items-center gap-1">
-					只显示未下载视频
-					<button
-						onclick={() => {
-							showNotAutoDownloadOnly = false;
-							setShowNotAutoDownloadOnly(false);
-							resetCurrentPage();
-							goto(`/videos?${ToQuery($appStateStore)}`);
-						}}
-						class="hover:bg-muted-foreground/20 ml-1 rounded"
-					>
-						<span class="sr-only">清除未下载视频筛选</span>
-						×
-					</button>
-				</Badge>
-			{/if}
-
-			{#if (selectedSourceType && selectedSourceId) || showFailedOnly || showNotAutoDownloadOnly}
-				<Button variant="ghost" size="sm" onclick={clearFilters}>清除所有筛选</Button>
-			{/if}
+			<Button variant="ghost" size="sm" onclick={clearFilters}>清除所有筛选</Button>
 		</div>
 	{/if}
 

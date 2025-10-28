@@ -525,8 +525,12 @@ pub async fn get_videos(
         );
     }
 
-    // 筛选失败任务（仅显示下载状态中包含失败的视频）
-    if params.show_failed_only.unwrap_or(false) {
+    // 视频分类筛选逻辑
+    let show_failed_only = params.show_failed_only.unwrap_or(false);
+    let show_not_auto_download_only = params.show_not_auto_download_only.unwrap_or(false);
+
+    if show_failed_only {
+        // 分类1：错误视频 - 显示下载状态中包含失败的视频
         // download_status是u32类型，使用位运算编码5个子任务状态
         // 每3位表示一个子任务：(download_status >> (offset * 3)) & 7
         // 状态值：0=未开始，1-6=失败次数，7=成功
@@ -553,11 +557,36 @@ pub async fn get_videos(
         }
 
         query = query.filter(final_condition);
-    }
-
-    // 筛选未标记为自动下载的视频
-    if params.show_not_auto_download_only.unwrap_or(false) {
+    } else if show_not_auto_download_only {
+        // 分类2：未下载视频 - 显示未标记为自动下载的视频
         query = query.filter(video::Column::AutoDownload.eq(false));
+    } else {
+        // 分类3：已完成视频（默认） - 排除错误和未下载的视频
+        // 条件：没有失败任务 AND 已标记为自动下载
+        use sea_orm::sea_query::Expr;
+
+        let mut no_failed_conditions = Vec::new();
+
+        // 检查5个子任务都不在失败状态（不在1-6范围内）
+        for offset in 0..5 {
+            let shift = offset * 3;
+            // 每个子任务状态必须是0（未开始）或7（成功）
+            no_failed_conditions.push(Expr::cust(format!(
+                "((download_status >> {}) & 7) NOT BETWEEN 1 AND 6",
+                shift
+            )));
+        }
+
+        // 使用AND连接：所有子任务都不能失败
+        let mut final_condition = no_failed_conditions[0].clone();
+        for condition in no_failed_conditions.into_iter().skip(1) {
+            final_condition = final_condition.and(condition);
+        }
+
+        // 同时要求已标记为自动下载
+        final_condition = final_condition.and(video::Column::AutoDownload.eq(true));
+
+        query = query.filter(final_condition);
     }
 
     let total_count = query.clone().count(db.as_ref()).await?;
