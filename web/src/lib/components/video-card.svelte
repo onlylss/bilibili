@@ -8,6 +8,7 @@
 	import InfoIcon from '@lucide/svelte/icons/info';
 	import UserIcon from '@lucide/svelte/icons/user';
 	import DownloadIcon from '@lucide/svelte/icons/download';
+	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import { goto } from '$app/navigation';
 	import api from '$lib/api';
 	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
@@ -26,6 +27,9 @@
 	export let selectionMode: boolean = false; // 是否为选择模式
 	export let selected: boolean = false; // 是否被选中
 	export let onSelectionChange: ((videoId: number, selected: boolean) => void) | null = null; // 选择状态变化回调
+
+	let deleteDialogOpen = false; // 删除确认对话框状态
+	let deleting = false; // 是否正在删除
 
 	function getStatusText(status: number): string {
 		if (status === 7) {
@@ -194,6 +198,29 @@
 			});
 		} finally {
 			downloadingVideo = false;
+		}
+	}
+
+	// 处理删除视频
+	async function handleDelete() {
+		deleting = true;
+		try {
+			const response = await api.deleteVideo(video.id);
+			if (response.data.success) {
+				toast.success('删除成功', {
+					description: '视频已删除，自动下载已改为手动，进度已重置'
+				});
+				// 刷新页面或通知父组件
+				window.location.reload();
+			}
+		} catch (error) {
+			console.error('删除视频失败:', error);
+			toast.error('删除失败', {
+				description: (error as ApiError).message
+			});
+		} finally {
+			deleting = false;
+			deleteDialogOpen = false;
 		}
 	}
 
@@ -380,40 +407,48 @@
 		</div>
 
 		<!-- UP主信息 -->
-		<div class="flex items-center justify-between text-[11px] text-muted-foreground">
-			<div class="flex items-center gap-1 min-w-0 flex-1">
-				<UserIcon class="h-3 w-3 shrink-0 opacity-70" />
-				<span class="truncate">{displaySubtitle || video.upper_name}</span>
-				<span class="shrink-0 opacity-60 mx-1">·</span>
-				<span class="shrink-0 opacity-70">{formatPubtime(video.pubtime)}</span>
-			</div>
-			<!-- 操作按钮组 - 手机端始终显示，桌面端hover显示 -->
-			{#if !selectionMode}
-				<div class="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity" onclick={(e) => e.stopPropagation()}>
-					{#if !video.auto_download}
-						<Button
-							size="sm"
-							variant="ghost"
-							class="h-5 w-5 p-0"
-							onclick={handleMarkForDownload}
-							disabled={downloadingVideo}
-							title="标记下载"
-						>
-							<DownloadIcon class="h-3 w-3" />
-						</Button>
-					{/if}
+		<div class="flex items-center gap-1 text-[11px] text-muted-foreground">
+			<UserIcon class="h-3 w-3 shrink-0 opacity-70" />
+			<span class="truncate">{displaySubtitle || video.upper_name}</span>
+			<span class="shrink-0 opacity-60 mx-1">·</span>
+			<span class="shrink-0 opacity-70">{formatPubtime(video.pubtime)}</span>
+		</div>
+
+		<!-- 操作按钮组 - 居中显示 -->
+		{#if !selectionMode}
+			<div class="flex justify-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity" onclick={(e) => e.stopPropagation()}>
+				{#if !video.auto_download}
 					<Button
 						size="sm"
 						variant="ghost"
-						class="h-5 w-5 p-0"
-						onclick={() => (resetDialogOpen = true)}
-						title="重置"
+						class="h-6 w-6 p-0"
+						onclick={handleMarkForDownload}
+						disabled={downloadingVideo}
+						title="标记下载"
 					>
-						<RotateCcwIcon class="h-3 w-3" />
+						<DownloadIcon class="h-3 w-3" />
 					</Button>
-				</div>
-			{/if}
-		</div>
+				{/if}
+				<Button
+					size="sm"
+					variant="ghost"
+					class="h-6 w-6 p-0"
+					onclick={() => (resetDialogOpen = true)}
+					title="重置"
+				>
+					<RotateCcwIcon class="h-3 w-3" />
+				</Button>
+				<Button
+					size="sm"
+					variant="ghost"
+					class="h-6 w-6 p-0"
+					onclick={() => (deleteDialogOpen = true)}
+					title="删除"
+				>
+					<Trash2Icon class="h-3 w-3" />
+				</Button>
+			</div>
+		{/if}
 	</div>
 
 	<!-- 隐藏的内容区域（保留原有功能） -->
@@ -455,6 +490,33 @@
 			</Button>
 			<Button variant="destructive" onclick={() => handleReset(true)} disabled={resetting}>
 				{resetting ? '重置中...' : '强制重置'}
+			</Button>
+		</AlertDialog.Footer>
+	</AlertDialog.Content>
+</AlertDialog.Root>
+
+<!-- 删除确认对话框 -->
+<AlertDialog.Root bind:open={deleteDialogOpen}>
+	<AlertDialog.Content>
+		<AlertDialog.Header>
+			<AlertDialog.Title>确认删除</AlertDialog.Title>
+			<AlertDialog.Description>
+				<p class="mb-2">
+					确定要删除视频 "{displayTitle}" 吗？
+				</p>
+				<p class="text-muted-foreground text-sm">
+					此操作将执行以下操作：<br />
+					• 删除视频文件<br />
+					• 自动下载改为手动<br />
+					• 下载进度重置<br />
+					• 视频将显示在"未下载"分类中
+				</p>
+			</AlertDialog.Description>
+		</AlertDialog.Header>
+		<AlertDialog.Footer>
+			<AlertDialog.Cancel>取消</AlertDialog.Cancel>
+			<Button variant="destructive" onclick={handleDelete} disabled={deleting}>
+				{deleting ? '删除中...' : '确认删除'}
 			</Button>
 		</AlertDialog.Footer>
 	</AlertDialog.Content>

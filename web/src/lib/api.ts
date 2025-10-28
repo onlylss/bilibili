@@ -826,12 +826,6 @@ export const api = {
 		apiClient.updateVideoSourceEnabled(sourceType, id, enabled),
 
 	/**
-	 * 更新视频源扫描已删除视频设置
-	 */
-	updateVideoSourceScanDeleted: (sourceType: string, id: number, scanDeleted: boolean) =>
-		apiClient.updateVideoSourceScanDeleted(sourceType, id, scanDeleted),
-
-	/**
 	 * 更新视频源弹幕下载设置
 	 */
 	updateVideoSourceDownloadDanmaku: (sourceType: string, id: number, downloadDanmaku: boolean) =>
