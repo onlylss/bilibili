@@ -495,12 +495,6 @@ pub async fn get_videos(
 ) -> Result<ApiResponse<VideosResponse>, ApiError> {
     let mut query = video::Entity::find();
 
-    // 根据配置决定是否过滤已删除的视频
-    let scan_deleted = crate::config::with_config(|bundle| bundle.config.scan_deleted_videos);
-    if !scan_deleted {
-        query = query.filter(video::Column::Deleted.eq(0));
-    }
-
     // 直接检查是否存在bangumi参数，单独处理
     if let Some(id) = params.bangumi {
         query = query.filter(video::Column::SourceId.eq(id).and(video::Column::SourceType.eq(1)));
@@ -1012,12 +1006,6 @@ pub async fn reset_all_videos(
     // 构建查询条件，与get_videos保持一致
     let mut video_query = video::Entity::find();
 
-    // 根据配置决定是否过滤已删除的视频
-    let scan_deleted = crate::config::with_config(|bundle| bundle.config.scan_deleted_videos);
-    if !scan_deleted {
-        video_query = video_query.filter(video::Column::Deleted.eq(0));
-    }
-
     // 直接检查是否存在bangumi参数，单独处理
     if let Some(id) = params.bangumi {
         video_query = video_query.filter(video::Column::SourceId.eq(id).and(video::Column::SourceType.eq(1)));
@@ -1056,11 +1044,6 @@ pub async fn reset_all_videos(
             .inner_join(video::Entity)
             .filter({
                 let mut page_query_filter = Condition::all();
-
-                // 根据配置决定是否过滤已删除的视频
-                if !scan_deleted {
-                    page_query_filter = page_query_filter.add(video::Column::Deleted.eq(0));
-                }
 
                 // 直接检查是否存在bangumi参数，单独处理
                 if let Some(id) = params.bangumi {
@@ -1237,12 +1220,6 @@ pub async fn reset_specific_tasks(
     // 构建查询条件，与get_videos保持一致
     let mut video_query = video::Entity::find();
 
-    // 根据配置决定是否过滤已删除的视频
-    let scan_deleted = crate::config::with_config(|bundle| bundle.config.scan_deleted_videos);
-    if !scan_deleted {
-        video_query = video_query.filter(video::Column::Deleted.eq(0));
-    }
-
     // 直接检查是否存在bangumi参数，单独处理
     if let Some(id) = request.bangumi {
         video_query = video_query.filter(video::Column::SourceId.eq(id).and(video::Column::SourceType.eq(1)));
@@ -1281,11 +1258,6 @@ pub async fn reset_specific_tasks(
             .inner_join(video::Entity)
             .filter({
                 let mut page_query_filter = Condition::all();
-
-                // 根据配置决定是否过滤已删除的视频
-                if !scan_deleted {
-                    page_query_filter = page_query_filter.add(video::Column::Deleted.eq(0));
-                }
 
                 // 直接检查是否存在bangumi参数，单独处理
                 if let Some(id) = request.bangumi {
@@ -2881,11 +2853,6 @@ pub async fn delete_video_internal(db: Arc<DatabaseConnection>, video_id: i32) -
         }
     };
 
-    // 检查是否已经删除
-    if video.deleted == 1 {
-        return Err(crate::api::error::InnerApiError::BadRequest("视频已经被删除".to_string()).into());
-    }
-
     // 删除本地文件 - 根据page表中的路径精确删除
     let deleted_files = delete_video_files_from_pages(db.clone(), video_id).await?;
 
@@ -2916,14 +2883,15 @@ pub async fn delete_video_internal(db: Arc<DatabaseConnection>, video_id: i32) -
         debug!("未找到需要删除的文件，视频ID: {}", video_id);
     }
 
-    // 执行软删除：将deleted字段设为1
+    // 重置下载状态：将自动下载设为false，重置所有任务进度
     video::Entity::update_many()
-        .col_expr(video::Column::Deleted, sea_orm::prelude::Expr::value(1))
+        .col_expr(video::Column::AutoDownload, sea_orm::prelude::Expr::value(false))
+        .col_expr(video::Column::DownloadStatus, sea_orm::prelude::Expr::value(0))
         .filter(video::Column::Id.eq(video_id))
         .exec(db.as_ref())
         .await?;
 
-    info!("视频已成功删除: ID={}, 名称={}", video_id, video.name);
+    info!("视频已成功删除（重置为手动下载）: ID={}, 名称={}", video_id, video.name);
 
     Ok(())
 }
@@ -10553,16 +10521,8 @@ async fn reset_nfo_tasks_for_config_change(db: Arc<DatabaseConnection>) -> Resul
 
     info!("开始重置NFO相关任务状态以应用新的配置...");
 
-    // 根据配置决定是否过滤已删除的视频
-    let scan_deleted = crate::config::with_config(|bundle| bundle.config.scan_deleted_videos);
-
     // 查询所有符合条件的视频
-    let mut video_query = video::Entity::find();
-    if !scan_deleted {
-        video_query = video_query.filter(video::Column::Deleted.eq(0));
-    }
-
-    let all_videos = video_query
+    let all_videos = video::Entity::find()
         .select_only()
         .columns([
             video::Column::Id,
@@ -10582,13 +10542,6 @@ async fn reset_nfo_tasks_for_config_change(db: Arc<DatabaseConnection>) -> Resul
     // 查询所有相关的页面
     let all_pages = page::Entity::find()
         .inner_join(video::Entity)
-        .filter({
-            let mut page_query_filter = Condition::all();
-            if !scan_deleted {
-                page_query_filter = page_query_filter.add(video::Column::Deleted.eq(0));
-            }
-            page_query_filter
-        })
         .select_only()
         .columns([
             page::Column::Id,

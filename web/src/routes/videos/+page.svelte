@@ -944,9 +944,9 @@
 				<div class="text-sm text-yellow-800 dark:text-yellow-200">
 					<strong>注意：</strong>
 					<ul class="mt-1 list-inside list-disc">
-						<li>此操作不可撤销</li>
-						<li>删除当前视频后，在视频源设置中开启"扫描已删除视频"后可重新下载</li>
-						<li>视频文件和相关元数据将被标记为已删除</li>
+						<li>此操作将删除视频文件</li>
+						<li>自动下载将改为手动，下载进度将被重置</li>
+						<li>视频将显示在"未下载"分类中，可手动重新下载</li>
 					</ul>
 				</div>
 			</div>

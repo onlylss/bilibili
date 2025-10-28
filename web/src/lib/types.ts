@@ -595,20 +595,6 @@ export interface UpdateVideoSourceEnabledResponse {
 	message: string;
 }
 
-// 更新视频源扫描已删除视频设置请求类型
-export interface UpdateVideoSourceScanDeletedRequest {
-	scan_deleted_videos: boolean;
-}
-
-// 更新视频源扫描已删除视频设置响应类型
-export interface UpdateVideoSourceScanDeletedResponse {
-	success: boolean;
-	source_id: number;
-	source_type: string;
-	scan_deleted_videos: boolean;
-	message: string;
-}
-
 // 更新视频源弹幕下载设置请求类型
 export interface UpdateVideoSourceDownloadDanmakuRequest {
 	download_danmaku: boolean;

@@ -120,31 +120,6 @@
 		showResetPathDialog = true;
 	}
 
-	// 切换扫描已删除视频设置
-	async function handleToggleScanDeleted(
-		sourceType: string,
-		sourceId: number,
-		currentScanDeleted: boolean
-	) {
-		try {
-			const newScanDeleted = !currentScanDeleted;
-			const result = await api.updateVideoSourceScanDeleted(sourceType, sourceId, newScanDeleted);
-
-			if (result.data.success) {
-				toast.success('设置更新成功', {
-					description: result.data.message
-				});
-				// 直接更新store中的数据
-				updateVideoSource(sourceType, sourceId, { scan_deleted_videos: newScanDeleted });
-			} else {
-				toast.error('设置更新失败', { description: result.data.message });
-			}
-		} catch (error: unknown) {
-			console.error('设置更新失败:', error);
-			toast.error('设置更新失败', { description: error.message });
-		}
-	}
-
 	// 切换弹幕下载设置
 	async function handleToggleDownloadDanmaku(
 		sourceType: string,
@@ -368,9 +343,6 @@
 														稍后再看 (无特定ID)
 													{/if}
 												</div>
-												{#if source.scan_deleted_videos}
-													<div class="mt-1 text-xs text-blue-600">扫描删除视频已启用</div>
-												{/if}
 												{#if source.download_danmaku}
 													<div class="mt-1 text-xs text-purple-600">弹幕下载已启用</div>
 												{/if}
@@ -406,26 +378,6 @@
 													class="h-8 w-8 p-0"
 												>
 													<FolderOpenIcon class="h-4 w-4 text-orange-600" />
-												</Button>
-
-												<!-- 扫描删除视频设置 -->
-												<Button
-													size="sm"
-													variant="ghost"
-													onclick={() =>
-														handleToggleScanDeleted(
-															sourceConfig.type,
-															source.id,
-															source.scan_deleted_videos
-														)}
-													title={source.scan_deleted_videos ? '禁用扫描已删除' : '启用扫描已删除'}
-													class="h-8 w-8 p-0"
-												>
-													<RotateCcwIcon
-														class="h-4 w-4 {source.scan_deleted_videos
-															? 'text-blue-600'
-															: 'text-gray-400'}"
-													/>
 												</Button>
 
 												<!-- 弹幕下载设置 -->

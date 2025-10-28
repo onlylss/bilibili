@@ -325,23 +325,6 @@ class ApiClient {
 	}
 
 	/**
-	 * 更新视频源扫描已删除视频设置
-	 * @param sourceType 视频源类型
-	 * @param id 视频源ID
-	 * @param scanDeleted 是否扫描已删除视频
-	 */
-	async updateVideoSourceScanDeleted(
-		sourceType: string,
-		id: number,
-		scanDeleted: boolean
-	): Promise<ApiResponse<UpdateVideoSourceEnabledResponse>> {
-		return this.put<UpdateVideoSourceEnabledResponse>(
-			`/video-sources/${sourceType}/${id}/scan-deleted`,
-			{ scan_deleted_videos: scanDeleted }
-		);
-	}
-
-	/**
 	 * 更新视频源弹幕下载设置
 	 * @param sourceType 视频源类型
 	 * @param id 视频源ID
