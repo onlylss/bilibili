@@ -101,7 +101,6 @@ pub async fn filter_in_progress_video_pages(
         .filter(
             video::Column::Valid
                 .eq(true)
-                .and(video::Column::DownloadStatus.lt(STATUS_COMPLETED))
                 .and(video::Column::Category.is_in([1, 2]))
                 .and(video::Column::SinglePage.is_not_null())
                 .and(video::Column::Deleted.eq(0))
