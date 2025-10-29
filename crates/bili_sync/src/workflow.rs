@@ -1318,11 +1318,11 @@ async fn process_single_in_progress_video(
                     if let (Some(true), Some(false)) = (is_upower_exclusive, is_upower_play) {
                         info!("待处理视频「{}」检测到已变为充电专享，标记为充电视频", video_model.name);
 
-                        // 标记为充电视频：设置特殊的download_status和auto_download
+                        // 标记为充电视频：设置特殊的download_status
+                        // 注意：不修改auto_download，保持视频在待处理队列中，避免下次扫描时被过滤掉
                         video::Entity::update(video::ActiveModel {
                             id: Unchanged(video_model.id),
                             download_status: Set(crate::utils::status::STATUS_CHARGING_VIDEO),
-                            auto_download: Set(false),  // 设为手动下载
                             ..Default::default()
                         })
                         .exec(connection)
