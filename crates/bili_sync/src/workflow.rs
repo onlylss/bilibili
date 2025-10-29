@@ -820,6 +820,7 @@ pub async fn fetch_video_details(
                                     id: Unchanged(video_model.id),
                                     download_status: Set(crate::utils::status::STATUS_CHARGING_VIDEO),
                                     auto_download: Set(false),  // 设为手动下载
+                                    single_page: Set(Some(pages.len() == 1)),  // 设置 single_page，避免待处理视频查询遗漏
                                     ..Default::default()
                                 })
                                 .exec(connection)
