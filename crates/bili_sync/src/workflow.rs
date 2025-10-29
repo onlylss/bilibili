@@ -31,8 +31,8 @@ use crate::error::{DownloadAbortError, ExecutionStatus, ProcessPageError};
 use crate::unified_downloader::UnifiedDownloader;
 use crate::utils::format_arg::{page_format_args, video_format_args};
 use crate::utils::model::{
-    create_pages, create_videos, filter_unfilled_videos, filter_unhandled_video_pages,
-    get_failed_videos_in_current_cycle, update_pages_model, update_videos_model,
+    create_pages, create_videos, filter_in_progress_video_pages, filter_unfilled_videos,
+    filter_unhandled_video_pages, get_failed_videos_in_current_cycle, update_pages_model, update_videos_model,
 };
 use crate::utils::nfo::NFO;
 use crate::utils::notification::NewVideoInfo;
@@ -170,10 +170,13 @@ pub async fn process_video_source(
         let has_unhandled = !filter_unhandled_video_pages(video_source.filter_expr(), connection).await?.is_empty();
         let has_failed = !get_failed_videos_in_current_cycle(video_source.filter_expr(), connection).await?.is_empty();
 
+        // 检查是否有待处理的视频（未完成但没有失败的视频）
+        let has_in_progress = !filter_in_progress_video_pages(video_source.filter_expr(), connection).await?.is_empty();
+
         // 检查是否有弹幕文件需要处理（删除或下载）
         let has_danmaku_work = check_danmaku_work_needed(&video_source, connection).await?;
 
-        if !(has_unfilled || has_unhandled || has_failed || has_danmaku_work) {
+        if !(has_unfilled || has_unhandled || has_failed || has_danmaku_work || has_in_progress) {
             info!("本轮未发现新视频，且无待处理任务，跳过详情与下载阶段");
             return Ok((new_video_count, new_videos));
         } else if has_danmaku_work {
@@ -183,7 +186,7 @@ pub async fn process_video_source(
                 info!("本轮未发现新视频，但弹幕已关闭且有文件需清理，继续执行下载阶段");
             }
         } else {
-            info!("本轮未发现新视频，但存在待处理任务（重置/未完成/可重试），继续执行下载阶段");
+            info!("本轮未发现新视频，但存在待处理任务（重置/未完成/可重试/待处理），继续执行下载阶段");
         }
     }
 
