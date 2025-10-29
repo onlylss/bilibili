@@ -229,6 +229,15 @@ pub async fn process_video_source(
             warn!("循环内重试失败的视频时出错: {:#}", e);
             // 重试失败不中断主流程，继续执行
         }
+
+        // 新增：处理"待处理"分类中的剩余视频
+        // 在例行扫描完成后，单独处理待处理分类中的视频（该下载下载，充电视频标记充电）
+        if let Err(e) =
+            process_remaining_in_progress_videos(bili_client, &video_source, connection, downloader, token.clone()).await
+        {
+            warn!("处理待处理视频时出错: {:#}", e);
+            // 处理失败不中断主流程，继续执行
+        }
     }
     Ok((new_video_count, new_videos))
 }
@@ -1265,6 +1274,122 @@ pub async fn retry_failed_videos_once(
         info!("循环内重试完成，成功重试 {} 个视频", retry_success_count);
     } else {
         debug!("循环内重试完成，但没有视频重试成功");
+    }
+
+    Ok(())
+}
+
+/// 处理"待处理"分类中的剩余视频
+/// 对于待处理的视频，该下载的下载，充电视频就标记为充电
+pub async fn process_remaining_in_progress_videos(
+    bili_client: &BiliClient,
+    video_source: &VideoSourceEnum,
+    connection: &DatabaseConnection,
+    downloader: &UnifiedDownloader,
+    token: CancellationToken,
+) -> Result<()> {
+    use crate::utils::model::filter_in_progress_video_pages;
+
+    // Early exit when paused/cancelled
+    if crate::task::TASK_CONTROLLER.is_paused() || token.is_cancelled() {
+        info!("任务已暂停/取消，跳过待处理视频处理阶段");
+        return Ok(());
+    }
+
+    let in_progress_videos = filter_in_progress_video_pages(video_source.filter_expr(), connection).await?;
+
+    if in_progress_videos.is_empty() {
+        debug!("没有待处理的视频需要处理");
+        return Ok(());
+    }
+
+    info!("发现 {} 个待处理视频，开始处理", in_progress_videos.len());
+
+    let current_config = crate::config::reload_config();
+    let semaphore = Semaphore::new(current_config.concurrent_limit.video);
+    let mut assigned_upper = HashSet::new();
+    let mut assigned_bangumi_seasons = HashSet::new();
+
+    let tasks = in_progress_videos
+        .into_iter()
+        .map(|(video_model, pages_model)| {
+            let should_download_upper = if let Some(season_id) = &video_model.season_id {
+                // 番剧：基于season_id判断是否需要生成series级别文件
+                let season_key = format!("season_{}", season_id);
+                let should_download = !assigned_bangumi_seasons.contains(&season_key);
+                assigned_bangumi_seasons.insert(season_key);
+                debug!("处理待处理番剧视频「{}」season_id={}, should_download_upper={}",
+                       video_model.name, season_id, should_download);
+                should_download
+            } else {
+                // 普通视频：基于upper_id判断
+                let should_download = !assigned_upper.contains(&video_model.upper_id);
+                assigned_upper.insert(video_model.upper_id);
+                should_download
+            };
+            debug!("处理待处理视频: {}", video_model.name);
+            download_video_pages(
+                bili_client,
+                video_source,
+                video_model,
+                pages_model,
+                connection,
+                &semaphore,
+                downloader,
+                should_download_upper,
+                token.clone(),
+            )
+        })
+        .collect::<FuturesUnordered<_>>();
+
+    let mut download_aborted = false;
+    let mut stream = tasks;
+    let mut success_count = 0;
+
+    while let Some(res) = stream.next().await {
+        match res {
+            Ok(model) => {
+                if download_aborted {
+                    continue;
+                }
+                success_count += 1;
+                if let Err(db_err) = update_videos_model(vec![model], connection).await {
+                    error!("更新待处理视频数据库失败: {:#}", db_err);
+                }
+            }
+            Err(e) => {
+                let error_msg = e.to_string();
+
+                // 检查是否是暂停导致的失败
+                if error_msg.contains("任务已暂停")
+                    || error_msg.contains("停止下载")
+                    || error_msg.contains("用户主动暂停任务")
+                    || (error_msg.contains("Download cancelled") && crate::task::TASK_CONTROLLER.is_paused())
+                {
+                    info!("待处理视频处理因用户暂停而终止: {}", error_msg);
+                    continue;
+                }
+
+                if e.downcast_ref::<DownloadAbortError>().is_some() || error_msg.contains("Download cancelled") {
+                    if !download_aborted {
+                        debug!("处理待处理视频时检测到风控或取消信号，停止处理");
+                        token.cancel();
+                        download_aborted = true;
+                    }
+                } else {
+                    // 处理失败，但不中断其他任务
+                    debug!("待处理视频处理失败: {:#}", e);
+                }
+            }
+        }
+    }
+
+    if download_aborted {
+        warn!("处理待处理视频时触发风控，已停止处理");
+    } else if success_count > 0 {
+        info!("待处理视频处理完成，成功处理 {} 个视频", success_count);
+    } else {
+        debug!("待处理视频处理完成，但没有视频处理成功");
     }
 
     Ok(())

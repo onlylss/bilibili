@@ -86,6 +86,53 @@ pub async fn filter_unhandled_video_pages(
         .context("filter unhandled video pages failed")
 }
 
+/// 筛选"待处理"分类中的视频（未完成但没有失败的视频）
+/// 待处理视频的定义：
+/// - 不是所有任务都完成（至少有一个任务未完成）
+/// - 没有失败任务（所有任务都不在1-6范围内）
+/// - 已标记为自动下载
+pub async fn filter_in_progress_video_pages(
+    additional_expr: SimpleExpr,
+    connection: &DatabaseConnection,
+) -> Result<Vec<(video::Model, Vec<page::Model>)>> {
+    use crate::utils::status::{STATUS_OK, VideoStatus};
+
+    let all_videos = video::Entity::find()
+        .filter(
+            video::Column::Valid
+                .eq(true)
+                .and(video::Column::DownloadStatus.lt(STATUS_COMPLETED))
+                .and(video::Column::Category.is_in([1, 2]))
+                .and(video::Column::SinglePage.is_not_null())
+                .and(video::Column::Deleted.eq(0))
+                .and(video::Column::AutoDownload.eq(true))
+                .and(additional_expr),
+        )
+        .find_with_related(page::Entity)
+        .all(connection)
+        .await?;
+
+    // 过滤出"待处理"的视频：不是所有任务都完成，且没有失败任务
+    let result = all_videos
+        .into_iter()
+        .filter(|(video_model, _pages_model)| {
+            let video_status = VideoStatus::from(video_model.download_status);
+            let status_array: [u32; 5] = video_status.into();
+
+            // 检查是否所有任务都完成（都等于7）
+            let all_completed = status_array.iter().all(|&s| s == STATUS_OK);
+
+            // 检查是否有失败任务（状态在1-6之间）
+            let has_failed = status_array.iter().any(|&s| s >= 1 && s <= 6);
+
+            // 待处理：不是全部完成 且 没有失败任务
+            !all_completed && !has_failed
+        })
+        .collect::<Vec<_>>();
+
+    Ok(result)
+}
+
 /// 筛选在当前循环中失败但可重试的视频（不包括已达到最大重试次数的视频）
 pub async fn get_failed_videos_in_current_cycle(
     additional_expr: SimpleExpr,
