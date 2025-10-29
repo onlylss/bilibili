@@ -1283,6 +1283,83 @@ pub async fn retry_failed_videos_once(
     Ok(())
 }
 
+/// 处理单个待处理视频（包含充电视频检测）
+/// 首先检测是否为充电视频，如果是则标记；否则进行正常下载
+async fn process_single_in_progress_video(
+    bili_client: &BiliClient,
+    video_source: &VideoSourceEnum,
+    video_model: video::Model,
+    pages_model: Vec<page::Model>,
+    connection: &DatabaseConnection,
+    semaphore: &Semaphore,
+    downloader: &UnifiedDownloader,
+    should_download_upper: bool,
+    token: CancellationToken,
+) -> Result<video::ActiveModel> {
+    use bili_sync_entity::video;
+    use sea_orm::*;
+
+    // 步骤1：重新获取视频详情以检测是否为充电视频
+    // 只对普通视频（非番剧）进行充电检测
+    if video_model.season_id.is_none() {
+        debug!("检测待处理视频「{}」是否为充电专享", video_model.name);
+
+        let video = Video::new(bili_client, video_model.bvid.clone());
+        match video.get_view_info().await {
+            Ok(view_info) => {
+                // 使用 upower 字段精确判断充电视频
+                if let VideoInfo::Detail {
+                    ref is_upower_exclusive,
+                    ref is_upower_play,
+                    ..
+                } = view_info
+                {
+                    // 充电专享检测：exclusive=true 且 play=false
+                    if let (Some(true), Some(false)) = (is_upower_exclusive, is_upower_play) {
+                        info!("待处理视频「{}」检测到已变为充电专享，标记为充电视频", video_model.name);
+
+                        // 标记为充电视频：设置特殊的download_status和auto_download
+                        video::Entity::update(video::ActiveModel {
+                            id: Unchanged(video_model.id),
+                            download_status: Set(crate::utils::status::STATUS_CHARGING_VIDEO),
+                            auto_download: Set(false),  // 设为手动下载
+                            ..Default::default()
+                        })
+                        .exec(connection)
+                        .await?;
+
+                        info!("充电视频已标记「{}」，跳过下载", video_model.name);
+
+                        // 返回一个成功的 ActiveModel，表示已处理（虽然是标记而不是下载）
+                        return Ok(video::ActiveModel {
+                            id: Unchanged(video_model.id),
+                            ..Default::default()
+                        });
+                    }
+                }
+            }
+            Err(e) => {
+                // 获取详情失败不影响下载流程，继续尝试下载
+                warn!("获取待处理视频「{}」详情失败: {:#}，继续尝试下载", video_model.name, e);
+            }
+        }
+    }
+
+    // 步骤2：如果不是充电视频，进行正常下载
+    download_video_pages(
+        bili_client,
+        video_source,
+        video_model,
+        pages_model,
+        connection,
+        semaphore,
+        downloader,
+        should_download_upper,
+        token,
+    )
+    .await
+}
+
 /// 处理"待处理"分类中的剩余视频
 /// 对于待处理的视频，该下载的下载，充电视频就标记为充电
 pub async fn process_remaining_in_progress_videos(
@@ -1332,7 +1409,9 @@ pub async fn process_remaining_in_progress_videos(
                 should_download
             };
             debug!("处理待处理视频: {}", video_model.name);
-            download_video_pages(
+
+            // 处理单个待处理视频（包含充电视频检测）
+            process_single_in_progress_video(
                 bili_client,
                 video_source,
                 video_model,
