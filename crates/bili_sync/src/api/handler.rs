@@ -38,7 +38,7 @@ use crate::api::response::{
     VideosResponse,
 };
 use crate::api::wrapper::{ApiError, ApiResponse};
-use crate::utils::status::{PageStatus, VideoStatus};
+use crate::utils::status::{PageStatus, VideoStatus, STATUS_CHARGING_VIDEO};
 
 // 全局静态的扫码登录服务实例
 use once_cell::sync::Lazy;
@@ -939,13 +939,31 @@ pub async fn reset_video(
         let txn = db.begin().await?;
 
         if video_resetted {
-            video::Entity::update(video::ActiveModel {
+            // 检查是否为充电视频（第30位为1）
+            let is_charging_video = (video_info.raw_download_status & STATUS_CHARGING_VIDEO) != 0;
+
+            // 清除充电标记位
+            let clean_status = if is_charging_video {
+                video_info.raw_download_status & !STATUS_CHARGING_VIDEO
+            } else {
+                video_info.raw_download_status
+            };
+
+            let mut update_model = video::ActiveModel {
                 id: Unchanged(id),
-                download_status: Set(VideoStatus::from(video_info.download_status).into()),
+                download_status: Set(clean_status),
                 ..Default::default()
-            })
-            .exec(&txn)
-            .await?;
+            };
+
+            // 如果是充电视频，同时设置 auto_download = true
+            if is_charging_video {
+                update_model.auto_download = Set(true);
+                info!("重置充电专享视频「{}」，清除充电标记并设为自动下载", video_info.name);
+            }
+
+            video::Entity::update(update_model)
+                .exec(&txn)
+                .await?;
         }
 
         if !resetted_pages_info.is_empty() {
